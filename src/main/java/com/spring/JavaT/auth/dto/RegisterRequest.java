@@ -7,6 +7,7 @@ import com.spring.JavaT.common.validation.ValidationMessages;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -76,6 +77,23 @@ public class RegisterRequest {
             groups  = {ValidationGroups.OnCreate.class, ValidationGroups.OnUpdate.class}
     )
     private String email;
+
+    @Schema(description = "Phone number (unique format not enforced)", example = "+250788123456")
+    @NotBlank(
+            message = ValidationMessages.NOT_BLANK,
+            groups  = ValidationGroups.OnCreate.class
+    )
+    @Pattern(
+            regexp  = "^\\+?[0-9]{7,15}$",
+            message = ValidationMessages.PHONE_INVALID,
+            groups  = {ValidationGroups.OnCreate.class, ValidationGroups.OnUpdate.class}
+    )
+    @Size(
+            max     = 30,
+            message = "Phone number must not exceed 30 characters",
+            groups  = {ValidationGroups.OnCreate.class, ValidationGroups.OnUpdate.class}
+    )
+    private String phone;
 
     @Schema(description = "Unique username (no spaces)", example = "johndoe")
     @NotBlank(

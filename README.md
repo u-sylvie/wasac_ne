@@ -1,6 +1,6 @@
-# JavaT — Spring Boot Template
+# WASAC Utility Billing System
 
-A production-ready Spring Boot template with authentication, user management, email notifications, database migrations, and a clean API layer built in. Clone it, configure it, and start building your feature — not the boilerplate.
+A complete **Spring Boot** backend for national utility billing (water & electricity). Built for the Java Backend Developer exam — JWT security, customer/meter management, meter readings, versioned tariffs, bill generation, payments, database routines, email notifications, and Swagger API docs.
 
 ---
 
@@ -16,9 +16,9 @@ A production-ready Spring Boot template with authentication, user management, em
 | Migrations | Flyway |
 | Mapping | MapStruct 1.6.3 |
 | Validation | Jakarta Bean Validation |
-| Email | Spring Mail (JavaMailSender) |
+| Email | Spring Mail (HTML templates) |
 | API Docs | SpringDoc OpenAPI (Swagger UI) |
-| Utilities | Lombok |
+| DevTools | Spring Boot DevTools (hot restart) |
 
 ---
 
@@ -30,14 +30,9 @@ A production-ready Spring Boot template with authentication, user management, em
 
 ---
 
-## Getting Started
+## Quick Start
 
-### 1. Clone and create the database
-
-```bash
-git clone https://github.com/orestengabo0/JavaT.git
-cd JavaT
-```
+### 1. Create the database
 
 ```sql
 CREATE DATABASE javat;
@@ -45,39 +40,27 @@ CREATE DATABASE javat;
 
 ### 2. Configure credentials
 
-`application.properties` (committed to git) contains only placeholder values. Put your real credentials in `application-local.properties` which is gitignored:
+Put real credentials in `src/main/resources/application-local.properties` (gitignored):
 
 ```properties
-# src/main/resources/application-local.properties  ← gitignored, never committed
-
 spring.datasource.url=jdbc:postgresql://127.0.0.1:5432/javat
-spring.datasource.username=your_postgres_username
-spring.datasource.password=your_postgres_password
+spring.datasource.username=postgres
+spring.datasource.password=your_password
 
-app.jwt.secret=your-base64-encoded-secret
+app.jwt.secret=your-base64-encoded-secret-min-32-bytes
 
 spring.mail.username=your-email@gmail.com
-spring.mail.password=your-16-char-app-password
+spring.mail.password=your-app-password
 app.mail.from=noreply@yourdomain.com
-app.mail.from-name=YourAppName
+app.mail.from-name=WASAC Utility Billing
 app.mail.base-url=http://localhost:8080
 ```
 
-Then activate the `local` profile when running:
+Generate JWT secret:
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=local
+openssl rand -base64 32
 ```
-
-Or set the environment variable in your IDE run configuration:
-```
-SPRING_PROFILES_ACTIVE=local
-```
-
-> **Generating a JWT secret:**
-> ```bash
-> openssl rand -base64 32
-> ```
 
 ### 3. Run
 
@@ -85,7 +68,7 @@ SPRING_PROFILES_ACTIVE=local
 mvn spring-boot:run
 ```
 
-Flyway runs automatically on startup and creates all tables. A default admin account is seeded.
+Flyway applies migrations **V1–V11** on startup. **Restart the app** after pulling code changes (a stale instance on port 8080 will not reflect new code).
 
 ### 4. Open Swagger UI
 
@@ -93,19 +76,110 @@ Flyway runs automatically on startup and creates all tables. A default admin acc
 http://localhost:8080/swagger-ui.html
 ```
 
+Click **Authorize** and paste: `Bearer <accessToken>`
+
 ---
 
-## Default Admin Account
+## Design Documents (Exam Requirement)
 
-Seeded by Flyway migration `V2`. Use this to test admin endpoints immediately.
-
-| Field | Value |
+| Document | Path |
 |---|---|
-| Email | `admin@javat.com` |
-| Password | *(set by your V5 migration hash)* |
-| Role | `ADMIN` |
+| Entity Relationship Diagram | [docs/ERD.md](docs/ERD.md) |
+| Spring Boot Flow Diagram | [docs/SPRING_BOOT_FLOW.md](docs/SPRING_BOOT_FLOW.md) |
 
-> Change this password before deploying anywhere.
+---
+
+## Default Test Accounts
+
+All seeded accounts use password **`Admin@1234`**:
+
+| Email | Role | Purpose |
+|---|---|---|
+| `admin@javat.com` | ADMIN | Tariffs, users, bill approval |
+| `operator@wasac.rw` | OPERATOR | Capture meter readings |
+| `finance@wasac.rw` | FINANCE | Approve bills, record payments |
+| `customer@wasac.rw` | CUSTOMER | View own bills & payments |
+
+Sample data (V9): customer **Eric Customer**, water meter `WTR-0001`, electricity meter `ELC-0001`, flat tariffs for water & electricity.
+
+---
+
+## End-to-End Test Flow (Swagger / Postman)
+
+1. **Login** as `operator@wasac.rw` → `POST /api/v1/meter-readings`
+2. **Login** as `admin@javat.com` → `POST /api/v1/bills/generate`
+3. **Approve bill** → `PATCH /api/v1/bills/{id}/approve`
+4. **Login** as `finance@wasac.rw` → `POST /api/v1/payments`
+5. **Check notifications** → `GET /api/v1/notifications`
+6. **Dispatch emails** → `POST /api/v1/notifications/send-pending-emails`
+7. **Customer view** → login as `customer@wasac.rw` → `GET /api/v1/bills/me`
+
+---
+
+## API Overview (`/api/v1/`)
+
+### Authentication (public except logout)
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/auth/register` | Register + welcome email |
+| POST | `/auth/login` | Login → access + refresh tokens |
+| POST | `/auth/refresh` | Refresh token pair |
+| POST | `/auth/logout` | Blacklist current access token |
+| GET | `/auth/verify-email?token=` | Email link verification |
+| POST | `/auth/send-otp` | Send 6-digit OTP |
+| POST | `/auth/verify-otp` | Verify OTP |
+| POST | `/auth/forgot-password` | Reset link + OTP |
+| POST | `/auth/reset-password` | Complete password reset |
+
+### Utility Billing
+
+| Module | Path | Roles |
+|---|---|---|
+| Customers | `/customers` | ADMIN |
+| Meters | `/meters` | ADMIN |
+| Meter Readings | `/meter-readings` | OPERATOR (create) |
+| Tariffs | `/tariffs` | ADMIN |
+| Bills | `/bills`, `/bills/me` | ADMIN, FINANCE, CUSTOMER |
+| Payments | `/payments`, `/payments/me` | FINANCE, CUSTOMER |
+| Notifications | `/notifications`, `/notifications/me` | ADMIN, FINANCE, CUSTOMER |
+| Files | `/files` | Authenticated |
+| Audit Logs | `/audit-logs` | ADMIN, FINANCE |
+| Users | `/users` | ADMIN + self-service `/me` |
+
+---
+
+## Business Rules
+
+| Rule | Enforcement |
+|---|---|
+| Current reading > previous | `MeterReadingService` + DB CHECK |
+| One reading per meter/month/year | DB UNIQUE + service validation |
+| Active meter required | `MeterReadingService` |
+| No duplicate customers | UNIQUE national_id / email |
+| Inactive customers cannot get bills | `BillService` |
+| Versioned tariffs | `TariffService` — new version for future cycles |
+| Partial/full payments | `sp_record_payment` stored procedure |
+| Bill PAID when balance = 0 | Stored procedure |
+| Bill notification on generation | PostgreSQL trigger |
+| Payment notification on full pay | PostgreSQL stored procedure |
+
+---
+
+## Database Migrations
+
+| Version | Description |
+|---|---|
+| V1 | Users table |
+| V2 | Seed admin user |
+| V3–V4 | Password reset & email verification tokens |
+| V5 | Update admin password |
+| V6 | Add phone + utility roles |
+| V7 | Billing tables (customers, meters, bills, payments, …) |
+| V8 | Triggers & `sp_record_payment` |
+| V9 | Sample tariffs, users, customer, meters |
+| V10 | Sync seeded user passwords |
+| V11 | Fix tariff effective dates for billing |
 
 ---
 
@@ -113,532 +187,101 @@ Seeded by Flyway migration `V2`. Use this to test admin endpoints immediately.
 
 ```
 src/main/java/com/spring/JavaT/
-├── auth/                        # Authentication & authorization
-│   ├── dto/                     # Request/response DTOs
-│   │   ├── RegisterRequest
-│   │   ├── LoginRequest
-│   │   ├── AuthResponse
-│   │   ├── ForgotPasswordRequest
-│   │   ├── ResetPasswordRequest
-│   ├── AuthController           # Public auth endpoints
-│   ├── AuthService              # Register, login, password reset, email verification
-│   ├── AuthMapper               # RegisterRequest → User (MapStruct)
-│   ├── PasswordResetToken       # Entity: time-limited password reset tokens
-│   ├── PasswordResetTokenRepository
-│   ├── EmailVerificationToken   # Entity: time-limited email verification tokens
-│   └── EmailVerificationTokenRepository
-│
-├── user/                        # User management
-│   ├── dto/
-│   │   ├── UserDto              # Safe read-only projection (no password)
-│   │   ├── UpdateProfileRequest
-│   │   ├── UpdatePasswordRequest
-│   │   └── UpdateRoleRequest
-│   ├── User                     # Entity (extends BaseEntity, implements UserDetails)
-│   ├── Role                     # Enum: USER, MODERATOR, ADMIN
-│   ├── UserRepository           # JpaRepository + JpaSpecificationExecutor
-│   ├── UserService              # Profile, password, role, deactivation
-│   ├── UserController           # /api/v1/users endpoints
-│   └── UserMapper               # User → UserDto (MapStruct)
-│
-├── common/                      # Shared infrastructure
-│   ├── ApiResponse              # Standard response envelope
-│   ├── ApiError                 # Single error entry
-│   ├── ResponseBuilder          # Static factory for ResponseEntity
-│   ├── BaseEntity               # Abstract JPA base with audit fields
-│   ├── EntityStatus             # Enum: ACTIVE, INACTIVE, SUSPENDED, PENDING
-│   ├── pagination/
-│   │   ├── PaginationMeta       # Extracted page metadata
-│   │   ├── PageResponse         # Generic paginated response
-│   │   └── PaginationUtil       # Defaults, caps, sort validation
-│   ├── filter/
-│   │   ├── SearchCriteria       # Single filter condition (field, op, value)
-│   │   └── BaseSpecification    # Generic JPA Specification builder
-│   └── validation/
-│       ├── ValidationMessages   # All validation message strings
-│       ├── ValidationGroups     # OnCreate, OnUpdate, OnPatch, OnDelete
-│       ├── ValidPassword        # Custom: password strength annotation
-│       ├── ValidPasswordValidator
-│       ├── NoWhitespace         # Custom: no leading/trailing spaces
-│       ├── NoWhitespaceValidator
-│       ├── ValidEnum            # Custom: string must match enum constant
-│       └── ValidEnumValidator
-│
-├── security/                    # Spring Security wiring
-│   ├── JwtService               # Token generation, validation, extraction
-│   ├── JwtProperties            # Typed config: app.jwt.*
-│   ├── JwtAuthenticationFilter  # Per-request JWT filter
-│   ├── UserDetailsServiceImpl   # Loads user by email
-│   ├── SecurityEntryPoint       # 401 handler → ApiResponse JSON
-│   ├── AccessDeniedHandlerImpl  # 403 handler → ApiResponse JSON
-│   └── SecurityProperties       # Typed config: app.security.*
-│
-├── notification/                # Email module
-│   ├── EmailService             # Async send, verification email, password reset email
-│   ├── EmailRequest             # Value object: to, subject, body, html flag
-│   └── MailProperties           # Typed config: app.mail.*
-│
-├── config/                      # Spring configuration classes
-│   ├── SecurityConfig           # SecurityFilterChain, AuthenticationManager, BCrypt
-│   ├── JpaConfig                # @EnableJpaAuditing + AuditAwareImpl bean
-│   ├── AsyncConfig              # @EnableAsync + email thread pool
-│   └── SwaggerConfig            # OpenAPI definition + bearerAuth scheme
-│
-├── audit/
-│   └── AuditAwareImpl           # Resolves current principal for @CreatedBy/@LastModifiedBy
-│
-└── exception/                   # Global exception handling
-    ├── GlobalExceptionHandler   # @RestControllerAdvice — all exception → ApiResponse
-    ├── BusinessException        # Base runtime exception with HttpStatus
-    ├── ResourceNotFoundException # 404
-    ├── DuplicateResourceException # 409
-    ├── UnauthorizedException    # 401
-    └── ForbiddenException       # 403
+├── auth/           # JWT, OTP, registration, password reset
+├── user/           # User management & roles
+├── customer/       # Customer CRUD
+├── meter/          # Meter management
+├── meterreading/   # Operator meter readings
+├── tariff/         # Versioned tariff configuration
+├── bill/           # Bill generation & approval
+├── payment/        # Payment recording (stored procedure)
+├── notification/   # In-app + email notifications
+├── file/           # Document/profile upload
+├── audit/          # Audit log trail
+├── security/       # JWT filter, config
+├── config/         # Security, JPA, Swagger, async, files
+├── common/         # DTOs, validation, pagination, enums
+└── exception/      # Global exception handler
 
 src/main/resources/
-├── application.properties
-├── db/migration/
-│   ├── V1__create_users_table.sql
-│   ├── V2__seed_admin_user.sql
-│   ├── V3__create_password_reset_tokens_table.sql
-│   ├── V4__create_email_verification_tokens_table.sql
-│   └── V5__update_admin_password.sql
-└── templates/email/
-    ├── verification.html
-    └── password-reset.html
+├── db/migration/   # Flyway SQL
+└── templates/email/  # HTML email templates
 ```
 
 ---
 
-## API Reference
+## Features Checklist (Exam Guide)
 
-All responses follow this envelope:
+- [x] JWT authentication + refresh tokens + logout blacklist
+- [x] Role-based access (ADMIN, OPERATOR, FINANCE, CUSTOMER)
+- [x] BCrypt password encryption
+- [x] Email verification (link + OTP)
+- [x] Password recovery (link + OTP)
+- [x] DTO validation + global exception handling
+- [x] Full CRUD on all entities
+- [x] Pagination, sorting, search
+- [x] Audit fields + audit log API
+- [x] Swagger/OpenAPI documentation
+- [x] Structured logging (`@Slf4j`)
+- [x] HTML email templates (welcome, OTP, bill, payment, …)
+- [x] File upload
+- [x] Layered architecture (Controller → Service → Repository)
+- [x] Database routines (trigger + stored procedure)
 
+---
+
+## Sample Request Bodies (Swagger / Postman)
+
+**Register**
 ```json
 {
-  "success": true,
-  "message": "Operation successful",
-  "data": {},
-  "errors": null,
-  "timestamp": "2024-01-01T00:00:00Z",
-  "path": "/api/v1/users"
-}
-```
-
-Error responses populate `errors` instead of `data`:
-
-```json
-{
-  "success": false,
-  "message": "Validation failed",
-  "errors": [
-    { "field": "email", "message": "must be a valid email address", "code": "Email" }
-  ]
-}
-```
-
-### Authentication — `/api/v1/auth` (public)
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/register` | Register a new account. Sends a verification email. Returns tokens. |
-| `POST` | `/login` | Login with email + password. Returns tokens. Blocked if email unverified. |
-| `GET` | `/verify-email?token=` | Verify email address from the link in the verification email. |
-| `POST` | `/resend-verification` | Resend the verification email. |
-| `POST` | `/forgot-password` | Request a password reset email. Always returns 200. |
-| `POST` | `/reset-password` | Complete password reset using the token from email. |
-
-**Register request:**
-```json
-{
-  "firstName": "John",
-  "lastName": "Doe",
-  "username": "johndoe",
-  "email": "john.doe@example.com",
+  "firstName": "Marie",
+  "lastName": "Uwera",
+  "username": "marieuwera",
+  "email": "marie@example.com",
+  "phone": "+250788999888",
   "password": "Secret@123"
 }
 ```
 
-**Login request:**
+**Meter reading (OPERATOR)**
 ```json
 {
-  "email": "john.doe@example.com",
-  "password": "Secret@123"
+  "meterId": 1,
+  "previousReading": 265,
+  "currentReading": 310,
+  "readingDate": "2026-07-01",
+  "billingYear": 2026,
+  "billingMonth": 7
 }
 ```
 
-**Auth response:**
+**Generate bill (ADMIN / FINANCE)**
+```json
+{ "meterReadingId": 2 }
+```
+
+**Record payment (FINANCE)**
 ```json
 {
-  "accessToken": "eyJhbGci...",
-  "refreshToken": "eyJhbGci...",
-  "tokenType": "Bearer",
-  "expiresIn": 86400,
-  "email": "john.doe@example.com",
-  "role": "USER"
+  "billId": 1,
+  "amountPaid": 15000.00,
+  "paymentMethod": "MOMO",
+  "paymentDate": "2026-07-05"
 }
 ```
 
-### User Management — `/api/v1/users` (requires JWT)
-
-| Method | Path | Role | Description |
-|---|---|---|---|
-| `GET` | `/me` | Any | Get own profile |
-| `PATCH` | `/me` | Any | Update own name / username |
-| `PATCH` | `/me/password` | Any | Change own password |
-| `GET` | `/` | ADMIN | List all users (paginated + filtered) |
-| `GET` | `/{id}` | ADMIN | Get any user by ID |
-| `PATCH` | `/{id}/role` | ADMIN | Change a user's role |
-| `PATCH` | `/{id}/deactivate` | ADMIN | Soft-deactivate a user |
-| `PATCH` | `/{id}/activate` | ADMIN | Restore a deactivated user |
-
-**Authenticated requests** — add the header:
-```
-Authorization: Bearer <accessToken>
-```
-
-**List users with filtering:**
-```
-GET /api/v1/users?page=0&size=10&sortBy=createdAt&sortDir=desc&role=USER&status=ACTIVE&search=gmail
-```
-
-All filter params are optional. `search` does a partial match on email.
-
----
-
-## Features In Detail
-
-### API Response Wrapper
-
-Every endpoint returns the same JSON shape. `data` is `null` on errors; `errors` is `null` on success. Both are omitted from JSON when null (`@JsonInclude(NON_NULL)`).
-
-Use `ResponseBuilder` in controllers:
-```java
-return ResponseBuilder.ok(dto, "User retrieved", request);
-return ResponseBuilder.created(dto, "Account created", request);
-return ResponseBuilder.noContent();
-```
-
-### JWT Authentication
-
-- Tokens are signed with HMAC-SHA256 using a Base64-encoded secret.
-- Access token default: 24 hours. Refresh token default: 7 days.
-- The `sub` claim is the user's **email** (not username).
-- A custom `role` claim is embedded so role checks don't require a DB lookup.
-- The `JwtAuthenticationFilter` runs before every request, extracts the token, validates it, and populates `SecurityContextHolder`.
-
-### Email Verification Flow
-
-1. User registers → status set to `PENDING` → verification email sent async.
-2. User clicks link → `GET /api/v1/auth/verify-email?token=...` → status set to `ACTIVE`.
-3. Login with `PENDING` status → `403` with code `EMAIL_NOT_VERIFIED`.
-4. Token expires after 24 hours → user can request a new one via `/resend-verification`.
-
-### Password Reset Flow
-
-1. `POST /forgot-password` → token created (15 min expiry) → email sent async.
-2. `POST /reset-password` with token + new password → password updated, token marked used.
-3. Always returns 200 on `/forgot-password` regardless of whether the email exists (prevents enumeration).
-
-### Base Entity
-
-Every entity that extends `BaseEntity` automatically gets:
-
-| Column | Type | Description |
-|---|---|---|
-| `id` | `BIGINT` | Auto-generated primary key |
-| `created_at` | `TIMESTAMPTZ` | Set on INSERT, never updated |
-| `updated_at` | `TIMESTAMPTZ` | Updated on every UPDATE |
-| `created_by` | `VARCHAR(100)` | Principal who created the record |
-| `updated_by` | `VARCHAR(100)` | Principal who last modified it |
-| `deleted` | `BOOLEAN` | Soft-delete flag |
-| `deleted_at` | `TIMESTAMPTZ` | When it was soft-deleted |
-| `deleted_by` | `VARCHAR(100)` | Who soft-deleted it |
-| `status` | `VARCHAR(20)` | `ACTIVE`, `INACTIVE`, `SUSPENDED`, `PENDING` |
-
-Soft-delete a record:
-```java
-entity.softDelete(currentUserEmail);
-repository.save(entity);
-```
-
-Restore it:
-```java
-entity.restore();
-repository.save(entity);
-```
-
-### Validation Layer
-
-Custom annotations in `common/validation/`:
-
-| Annotation | What it validates |
-|---|---|
-| `@ValidPassword` | 8–72 chars, upper + lower + digit + special char |
-| `@NoWhitespace` | No leading or trailing spaces |
-| `@ValidEnum` | String matches a given enum's constants |
-
-All validation messages are constants in `ValidationMessages` — change once, applies everywhere.
-
-Use `ValidationGroups` to apply different rules per operation:
-```java
-// Controller — only OnCreate constraints fire
-@Validated(ValidationGroups.OnCreate.class) @RequestBody RegisterRequest body
-
-// Controller — only OnPatch constraints fire
-@Validated(ValidationGroups.OnPatch.class) @RequestBody UpdateProfileRequest body
-```
-
-### Pagination & Filtering
-
-**Paginated response shape:**
+**Tariff (ADMIN) — flat water**
 ```json
 {
-  "content": [...],
-  "meta": {
-    "page": 0,
-    "size": 10,
-    "totalElements": 47,
-    "totalPages": 5,
-    "first": true,
-    "last": false,
-    "empty": false
-  }
-}
-```
-
-**In a service:**
-```java
-Specification<User> spec = new BaseSpecification<>(criteria);
-Page<User> page = userRepository.findAll(spec, pageable);
-return PageResponse.of(page, userMapper::toDto);
-```
-
-**In a controller:**
-```java
-Pageable pageable = PaginationUtil.toPageable(page, size, sortBy, sortDir, ALLOWED_SORT_FIELDS);
-```
-
-Defaults: page=0, size=10, sortBy=id, sortDir=asc. Max size: 100.
-
-**Adding a filter to any entity:**
-1. Make the repository extend `JpaSpecificationExecutor<YourEntity>`.
-2. Build a `List<SearchCriteria>` from request params.
-3. Pass to `new BaseSpecification<>(criteria)`.
-
-### Email Service
-
-All emails are sent asynchronously on a dedicated thread pool (`emailTaskExecutor`). The calling thread returns immediately.
-
-HTML templates live in `src/main/resources/templates/email/`. Variables use `{{placeholder}}` syntax — no template engine needed.
-
-**Sending a custom email:**
-```java
-emailService.send(EmailRequest.builder()
-    .to("user@example.com")
-    .subject("Welcome")
-    .body("<h1>Hello!</h1>")
-    .html(true)
-    .build());
-```
-
-**Adding a new email type:**
-1. Create `templates/email/your-template.html` with `{{placeholder}}` variables.
-2. Add a method to `EmailService` annotated with `@Async("emailTaskExecutor")`.
-3. Call `loadTemplate("your-template.html", Map.of(...))` and pass to `send()`.
-
-**Local development without a real mail server** — use [Mailpit](https://github.com/axllent/mailpit):
-```properties
-spring.mail.host=localhost
-spring.mail.port=1025
-spring.mail.properties.mail.smtp.auth=false
-spring.mail.properties.mail.smtp.starttls.enable=false
-```
-Open `http://localhost:8025` to see all sent emails.
-
-### Global Exception Handling
-
-`GlobalExceptionHandler` catches everything and returns a consistent `ApiResponse`. You never need to write try/catch in controllers or services for these cases:
-
-| Exception | HTTP |
-|---|---|
-| `MethodArgumentNotValidException` | 400 — validation errors with field details |
-| `ConstraintViolationException` | 400 — path/query param violations |
-| `ResourceNotFoundException` | 404 |
-| `DuplicateResourceException` | 409 |
-| `UnauthorizedException` | 401 |
-| `ForbiddenException` | 403 |
-| `DataIntegrityViolationException` | 409 — DB unique constraint (parses field name from PostgreSQL/MySQL error) |
-| `TransactionSystemException` | 400 — entity-level validation at commit time |
-| `AuthenticationException` | 401 |
-| `AccessDeniedException` | 403 |
-| `HttpMessageNotReadableException` | 400 — malformed JSON |
-| `NoResourceFoundException` | 404 — unknown URL |
-| `Exception` | 500 — catch-all, real cause logged server-side only |
-
-**Throwing domain errors in services:**
-```java
-throw new ResourceNotFoundException("User", "id", id);
-throw new DuplicateResourceException("User", "email", email);
-throw new ForbiddenException("You can only modify your own resources");
-throw new BusinessException("Account is suspended", HttpStatus.FORBIDDEN);
-```
-
-### Flyway Migrations
-
-Migrations live in `src/main/resources/db/migration/` and follow the naming convention `V{version}__{description}.sql`.
-
-| File | What it does |
-|---|---|
-| `V1` | Creates the `users` table |
-| `V2` | Seeds the default admin user |
-| `V3` | Creates `password_reset_tokens` table |
-| `V4` | Creates `email_verification_tokens` table |
-| `V5` | Updates admin password hash |
-
-**Adding a new migration:**
-1. Create `V6__your_description.sql` in `db/migration/`.
-2. Write your SQL.
-3. Restart the app — Flyway runs it automatically.
-
-> Never modify an existing migration file after it has been applied. Flyway checksums every file and will refuse to start if a checksum changes.
-
-### Role-Based Access Control
-
-Three roles: `USER`, `MODERATOR`, `ADMIN`.
-
-**Coarse-grained** — on controller methods:
-```java
-@PreAuthorize("hasRole('ADMIN')")
-@GetMapping
-public ResponseEntity<?> listAll(...) { ... }
-```
-
-**Fine-grained** — inside service methods:
-```java
-if (!currentUser.getId().equals(resourceOwnerId)) {
-    throw new ForbiddenException("You can only modify your own resources");
-}
-```
-
-`@EnableMethodSecurity` is active in `SecurityConfig`, so `@PreAuthorize` works on any Spring-managed bean.
-
----
-
-## Configuration Reference
-
-All custom properties are prefixed with `app.*`:
-
-```properties
-# JWT
-app.jwt.secret=                          # Base64-encoded HMAC-SHA256 key (min 32 bytes)
-app.jwt.expiration-ms=86400000           # Access token TTL in ms (default: 24h)
-app.jwt.refresh-expiration-ms=604800000  # Refresh token TTL in ms (default: 7d)
-app.jwt.issuer=JavaT                     # JWT iss claim
-
-# Security
-app.security.public-paths[0]=/api/v1/auth/**   # Paths that bypass JWT
-
-# Mail
-app.mail.from=noreply@yourdomain.com
-app.mail.from-name=YourAppName
-app.mail.base-url=http://localhost:8080  # Used to build links in emails
-
-# Async thread pool
-app.async.core-pool-size=2
-app.async.max-pool-size=5
-app.async.queue-capacity=100
-app.async.thread-name-prefix=async-email-
-
-# Token expiry
-app.auth.password-reset-token-expiry-minutes=15
-app.auth.verification-token-expiry-hours=24
-```
-
----
-
-## Using This Template for a New Project
-
-1. Clone the repository.
-2. Rename the package from `com.spring.JavaT` to `com.yourcompany.yourapp` (IDE refactor → rename package).
-3. Update `spring.application.name` in `application.properties`.
-4. Update `pom.xml` `<groupId>`, `<artifactId>`, and `<name>`.
-5. Create your database and update the datasource credentials.
-6. Generate a new JWT secret: `openssl rand -base64 32`.
-7. Configure your SMTP credentials.
-8. Run `mvn spring-boot:run` — Flyway creates the schema automatically.
-9. Start building your domain features on top.
-
----
-
-## Extending the Template
-
-### Adding a new entity
-
-```java
-@Entity
-@Table(name = "products")
-public class Product extends BaseEntity {
-    // Your fields — id, timestamps, audit, soft-delete, status come from BaseEntity
-    private String name;
-    private BigDecimal price;
-}
-```
-
-### Adding a new paginated + filtered endpoint
-
-```java
-// Repository
-public interface ProductRepository extends JpaRepository<Product, Long>,
-        JpaSpecificationExecutor<Product> { }
-
-// Service
-public PageResponse<ProductDto> findAll(List<SearchCriteria> criteria, Pageable pageable) {
-    Specification<Product> spec = new BaseSpecification<>(criteria);
-    return PageResponse.of(productRepository.findAll(spec, pageable), productMapper::toDto);
-}
-
-// Controller
-@GetMapping
-public ResponseEntity<ApiResponse<PageResponse<ProductDto>>> list(
-        @RequestParam(required = false) Integer page,
-        @RequestParam(required = false) Integer size,
-        @RequestParam(required = false) String sortBy,
-        @RequestParam(required = false) String sortDir,
-        @RequestParam(required = false) String name,
-        HttpServletRequest request) {
-
-    Pageable pageable = PaginationUtil.toPageable(page, size, sortBy, sortDir,
-            Set.of("id", "name", "price", "createdAt"));
-
-    List<SearchCriteria> criteria = new ArrayList<>();
-    if (name != null) criteria.add(new SearchCriteria("name", SearchCriteria.Op.LIKE, name));
-
-    return ResponseBuilder.ok(
-            productService.findAll(criteria, pageable),
-            "Products retrieved successfully",
-            request);
-}
-```
-
-### Adding a new email type
-
-```java
-// 1. Create templates/email/welcome.html with {{firstName}}, {{appName}} placeholders
-
-// 2. Add to EmailService
-@Async("emailTaskExecutor")
-public void sendWelcomeEmail(String toEmail, String firstName) {
-    String body = loadTemplate("welcome.html", Map.of(
-            "appName",   mailProperties.getFromName(),
-            "firstName", firstName
-    ));
-    send(EmailRequest.builder()
-            .to(toEmail)
-            .subject("Welcome to " + mailProperties.getFromName())
-            .body(body)
-            .html(true)
-            .build());
+  "name": "Water Flat v2",
+  "meterType": "WATER",
+  "tariffType": "FLAT",
+  "ratePerUnit": 400,
+  "fixedServiceCharge": 2000,
+  "vatPercentage": 18,
+  "penaltyPercentage": 5,
+  "effectiveFrom": "2026-08-01"
 }
 ```
 

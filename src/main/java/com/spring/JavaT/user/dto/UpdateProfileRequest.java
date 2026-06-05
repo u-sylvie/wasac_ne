@@ -4,6 +4,7 @@ import com.spring.JavaT.common.validation.NoWhitespace;
 import com.spring.JavaT.common.validation.ValidationGroups;
 import com.spring.JavaT.common.validation.ValidationMessages;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -47,4 +48,17 @@ public class UpdateProfileRequest {
     )
     @NoWhitespace(groups = ValidationGroups.OnPatch.class)
     private String username;
+
+    @Schema(description = "New phone number", example = "+250788123456")
+    @Pattern(
+            regexp  = "^\\+?[0-9]{7,15}$",
+            message = ValidationMessages.PHONE_INVALID,
+            groups  = ValidationGroups.OnPatch.class
+    )
+    @Size(
+            max     = 30,
+            message = "Phone number must not exceed 30 characters",
+            groups  = ValidationGroups.OnPatch.class
+    )
+    private String phone;
 }

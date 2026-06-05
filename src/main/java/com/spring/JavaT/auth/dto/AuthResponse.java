@@ -35,4 +35,7 @@ public class AuthResponse {
 
     @Schema(description = "Authenticated user's role", example = "USER")
     private final String role;
+
+    @Schema(description = "True when the user must change a temporary password before using the API")
+    private final Boolean mustChangePassword;
 }

@@ -1,5 +1,6 @@
 package com.spring.JavaT.security;
 
+import com.spring.JavaT.auth.RevokedTokenRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,8 +36,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX        = "Bearer ";
 
-    private final JwtService            jwtService;
+    private final JwtService               jwtService;
     private final UserDetailsServiceImpl userDetailsService;
+    private final RevokedTokenRepository   revokedTokenRepository;
 
     @Override
     protected void doFilterInternal(
@@ -62,6 +64,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private void tryAuthenticate(String token, HttpServletRequest request) {
         try {
+            if (jwtService.isRefreshToken(token)) {
+                log.debug("Rejecting refresh token used as an access token");
+                return;
+            }
+
+            String jti = jwtService.extractJti(token);
+            if (StringUtils.hasText(jti) && revokedTokenRepository.existsByTokenJti(jti)) {
+                log.debug("Rejecting revoked token with jti: {}", jti);
+                return;
+            }
+
             String email = jwtService.extractUsername(token);
 
             if (!StringUtils.hasText(email)) {
@@ -72,6 +85,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (!jwtService.isTokenValid(token, userDetails)) {
                 log.debug("JWT token is invalid or expired for user: {}", email);
+                return;
+            }
+
+            if (!userDetails.isEnabled()) {
+                log.debug("User account is not enabled: {}", email);
                 return;
             }
 

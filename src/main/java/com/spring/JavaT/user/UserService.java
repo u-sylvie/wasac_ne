@@ -1,15 +1,22 @@
 package com.spring.JavaT.user;
 
+import com.spring.JavaT.audit.AuditService;
+import com.spring.JavaT.common.EntityStatus;
+import com.spring.JavaT.common.TempPasswordGenerator;
 import com.spring.JavaT.common.filter.BaseSpecification;
 import com.spring.JavaT.common.filter.SearchCriteria;
+import com.spring.JavaT.exception.BusinessException;
 import com.spring.JavaT.exception.DuplicateResourceException;
 import com.spring.JavaT.exception.ForbiddenException;
 import com.spring.JavaT.exception.ResourceNotFoundException;
+import com.spring.JavaT.notification.EmailService;
+import com.spring.JavaT.user.dto.AdminCreateUserRequest;
 import com.spring.JavaT.user.dto.UpdatePasswordRequest;
 import com.spring.JavaT.user.dto.UpdateProfileRequest;
 import com.spring.JavaT.user.dto.UpdateRoleRequest;
 import com.spring.JavaT.user.dto.UserDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -36,6 +43,8 @@ public class UserService {
     private final UserRepository  userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper      userMapper;
+    private final EmailService    emailService;
+    private final AuditService    auditService;
 
     // -------------------------------------------------------------------------
     // Profile — self-service
@@ -77,6 +86,9 @@ public class UserService {
                 user.setUsername(newUsername);
             }
         }
+        if (request.getPhone() != null) {
+            user.setPhone(request.getPhone().strip());
+        }
 
         return userMapper.toDto(userRepository.save(user));
     }
@@ -97,7 +109,9 @@ public class UserService {
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setMustChangePassword(false);
         userRepository.save(user);
+        auditService.log("User", user.getId(), "UPDATE", email, "Password changed");
     }
 
     // -------------------------------------------------------------------------
@@ -134,10 +148,56 @@ public class UserService {
      * @throws ResourceNotFoundException if no user with that ID exists
      */
     @Transactional
-    public UserDto updateRole(Long id, UpdateRoleRequest request) {
+    public UserDto updateRole(Long id, UpdateRoleRequest request, String adminEmail) {
         User user = findByIdOrThrow(id);
-        user.setRole(Role.valueOf(request.getRole()));
-        return userMapper.toDto(userRepository.save(user));
+        Role oldRole = user.getRole();
+        Role newRole = Role.valueOf(request.getRole());
+        if (oldRole == newRole) {
+            return userMapper.toDto(user);
+        }
+        user.setRole(newRole);
+        User saved = userRepository.save(user);
+        emailService.sendRoleChangeEmail(saved.getEmail(), saved.getFirstName(), oldRole.name(), newRole.name());
+        auditService.log("User", saved.getId(), "UPDATE", adminEmail,
+                "Role changed from " + oldRole + " to " + newRole);
+        return userMapper.toDto(saved);
+    }
+
+    /**
+     * Creates an operator or finance user with a temporary password emailed to them.
+     */
+    @Transactional
+    public UserDto createUserByAdmin(AdminCreateUserRequest request, String adminEmail) {
+        Role role = Role.valueOf(request.getRole().toUpperCase());
+        if (role != Role.OPERATOR && role != Role.FINANCE) {
+            throw new BusinessException("Only OPERATOR and FINANCE users can be created by an administrator",
+                    HttpStatus.BAD_REQUEST);
+        }
+        if (userRepository.existsByEmail(request.getEmail().strip().toLowerCase())) {
+            throw new DuplicateResourceException("User", "email", request.getEmail());
+        }
+        if (userRepository.existsByUsername(request.getUsername().strip())) {
+            throw new DuplicateResourceException("User", "username", request.getUsername());
+        }
+
+        String tempPassword = TempPasswordGenerator.generate(12);
+        User user = User.builder()
+                .firstName(request.getFirstName().strip())
+                .lastName(request.getLastName().strip())
+                .username(request.getUsername().strip())
+                .email(request.getEmail().strip().toLowerCase())
+                .phone(request.getPhone().strip())
+                .password(passwordEncoder.encode(tempPassword))
+                .role(role)
+                .mustChangePassword(true)
+                .build();
+
+        User saved = userRepository.save(user);
+        emailService.sendUserCredentialsEmail(
+                saved.getEmail(), saved.getFirstName(), saved.getEmail(), tempPassword, role.name());
+        auditService.log("User", saved.getId(), "CREATE", adminEmail,
+                "Admin created " + role + " user " + saved.getEmail());
+        return userMapper.toDto(saved);
     }
 
     /**

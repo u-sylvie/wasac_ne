@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.jpa.JpaSystemException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.transaction.TransactionSystemException;
 import org.springframework.validation.FieldError;
@@ -170,6 +171,16 @@ public class GlobalExceptionHandler {
     // =========================================================================
     // 3. Spring Security exceptions
     // =========================================================================
+
+    /** 401 — wrong email or password on login. */
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBadCredentials(
+            BadCredentialsException ex, HttpServletRequest request) {
+
+        log.warn("Bad credentials [{}]", request.getRequestURI());
+        return buildError(HttpStatus.UNAUTHORIZED, "Invalid email or password",
+                List.of(ApiError.ofGlobal("Invalid email or password", "BAD_CREDENTIALS")), request);
+    }
 
     /**
      * Handles Spring Security's {@link AuthenticationException} (e.g. bad credentials,

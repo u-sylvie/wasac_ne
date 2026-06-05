@@ -117,6 +117,156 @@ public class EmailService {
      * @param firstName recipient's first name for personalisation
      * @param token     the password reset token (appended to the reset URL)
      */
+    /**
+     * Sends a welcome email after successful registration.
+     *
+     * @param toEmail   recipient email address
+     * @param firstName recipient's first name for personalisation
+     */
+    @Async("emailTaskExecutor")
+    public void sendWelcomeEmail(String toEmail, String firstName) {
+        String body = loadTemplate("welcome.html", Map.of(
+                "appName",   mailProperties.getFromName(),
+                "firstName", firstName
+        ));
+
+        send(EmailRequest.builder()
+                .to(toEmail)
+                .toName(firstName)
+                .subject("Welcome to " + mailProperties.getFromName())
+                .body(body)
+                .html(true)
+                .build());
+    }
+
+    /**
+     * Sends a one-time password email for verification or password reset.
+     *
+     * @param toEmail        recipient email address
+     * @param firstName      recipient's first name for personalisation
+     * @param otpCode        the six-digit OTP code
+     * @param purposeLabel   human-readable purpose (e.g. "verify your email")
+     * @param expiryMinutes  how long the code remains valid
+     */
+    @Async("emailTaskExecutor")
+    public void sendOtpEmail(String toEmail, String firstName, String otpCode,
+                             String purposeLabel, int expiryMinutes) {
+        String body = loadTemplate("otp.html", Map.of(
+                "appName",       mailProperties.getFromName(),
+                "firstName",     firstName,
+                "otpCode",       otpCode,
+                "purposeLabel",  purposeLabel,
+                "expiryMinutes", String.valueOf(expiryMinutes)
+        ));
+
+        send(EmailRequest.builder()
+                .to(toEmail)
+                .toName(firstName)
+                .subject("Your " + mailProperties.getFromName() + " verification code")
+                .body(body)
+                .html(true)
+                .build());
+    }
+
+  /**
+   * Sends a bill-generated notification email to a customer.
+   */
+  @Async("emailTaskExecutor")
+  public void sendBillNotificationEmail(String toEmail, String firstName, String billReference,
+                                        String totalAmount, int billingMonth, int billingYear) {
+    String body = loadTemplate("bill-notification.html", Map.of(
+        "appName", mailProperties.getFromName(),
+        "firstName", firstName,
+        "billReference", billReference,
+        "totalAmount", totalAmount,
+        "billingMonth", String.valueOf(billingMonth),
+        "billingYear", String.valueOf(billingYear)
+    ));
+
+    send(EmailRequest.builder()
+        .to(toEmail)
+        .toName(firstName)
+        .subject("Your utility bill " + billReference + " is ready")
+        .body(body)
+        .html(true)
+        .build());
+  }
+
+  /**
+   * Sends a payment-completed notification email to a customer.
+   */
+  @Async("emailTaskExecutor")
+  public void sendPaymentNotificationEmail(String toEmail, String firstName, String billReference,
+                                           String totalAmount) {
+    String body = loadTemplate("payment-notification.html", Map.of(
+        "appName", mailProperties.getFromName(),
+        "firstName", firstName,
+        "billReference", billReference,
+        "totalAmount", totalAmount
+    ));
+
+    send(EmailRequest.builder()
+        .to(toEmail)
+        .toName(firstName)
+        .subject("Payment received for bill " + billReference)
+        .body(body)
+        .html(true)
+        .build());
+  }
+
+    @Async("emailTaskExecutor")
+    public void sendUserCredentialsEmail(String toEmail, String firstName, String email,
+                                         String temporaryPassword, String role) {
+        String loginUrl = mailProperties.getBaseUrl() + "/swagger-ui.html";
+        String body = loadTemplate("user-credentials.html", Map.of(
+                "appName", mailProperties.getFromName(),
+                "firstName", firstName,
+                "email", email,
+                "temporaryPassword", temporaryPassword,
+                "role", role,
+                "loginUrl", loginUrl
+        ));
+
+        send(EmailRequest.builder()
+                .to(toEmail)
+                .toName(firstName)
+                .subject("Your WASAC system login credentials")
+                .body(body)
+                .html(true)
+                .build());
+    }
+
+    @Async("emailTaskExecutor")
+    public void sendRoleChangeEmail(String toEmail, String firstName, String oldRole, String newRole) {
+        String loginUrl = mailProperties.getBaseUrl() + "/swagger-ui.html";
+        String body = loadTemplate("role-change.html", Map.of(
+                "appName", mailProperties.getFromName(),
+                "firstName", firstName,
+                "oldRole", oldRole,
+                "newRole", newRole,
+                "roleDescription", describeRole(newRole),
+                "loginUrl", loginUrl
+        ));
+
+        send(EmailRequest.builder()
+                .to(toEmail)
+                .toName(firstName)
+                .subject("Your WASAC access role has been updated")
+                .body(body)
+                .html(true)
+                .build());
+    }
+
+    private String describeRole(String role) {
+        return switch (role) {
+            case "ADMIN" -> "You can manage users, tariffs, and system configuration.";
+            case "OPERATOR" -> "You can register customers, meters, and record meter readings.";
+            case "FINANCE" -> "You can approve bills and record customer payments.";
+            case "CUSTOMER" -> "You can view your bills and payment history.";
+            default -> "Please sign in to review your updated permissions.";
+        };
+    }
+
     @Async("emailTaskExecutor")
     public void sendPasswordResetEmail(String toEmail, String firstName, String token) {
         String resetUrl = mailProperties.getBaseUrl()

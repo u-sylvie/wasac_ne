@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; padding: 24px;">
+
+  <h2 style="color: #0B6E4F;">Your WASAC role has been updated</h2>
+
+  <p>Hello {{firstName}},</p>
+
+  <p>Your access role on the {{appName}} platform has been changed.</p>
+
+  <table style="width:100%; border-collapse: collapse; margin: 20px 0;">
+    <tr><td style="padding:8px; border:1px solid #eee;"><strong>Previous role</strong></td><td style="padding:8px; border:1px solid #eee;">{{oldRole}}</td></tr>
+    <tr><td style="padding:8px; border:1px solid #eee;"><strong>New role</strong></td><td style="padding:8px; border:1px solid #eee;">{{newRole}}</td></tr>
+  </table>
+
+  <p>{{roleDescription}}</p>
+
+  <p>Sign in at: <a href="{{loginUrl}}">{{loginUrl}}</a></p>
+
+  <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;"/>
+
+  <p style="font-size:12px; color:#999;">
+    If you believe this change was made in error, contact your WASAC system administrator immediately.
+  </p>
+
+</body>
+</html>

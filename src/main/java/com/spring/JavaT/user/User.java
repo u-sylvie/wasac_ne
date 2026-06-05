@@ -50,6 +50,10 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "email", nullable = false, unique = true, length = 254)
     private String email;
 
+    /** Phone number (for customer/operator/finance contact). */
+    @Column(name = "phone", nullable = false, length = 30)
+    private String phone;
+
     /** BCrypt-hashed password. Never store plain text. */
     @Column(name = "password", nullable = false)
     private String password;
@@ -57,6 +61,10 @@ public class User extends BaseEntity implements UserDetails {
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 20)
     private Role role;
+
+    /** When true, user must change password before accessing the system. */
+    @Column(name = "must_change_password", nullable = false)
+    private boolean mustChangePassword = false;
 
     // -------------------------------------------------------------------------
     // UserDetails contract
@@ -117,7 +125,7 @@ public class User extends BaseEntity implements UserDetails {
 
     @Override
     public boolean isCredentialsNonExpired() {
-        return true; // credential expiry not implemented in this template
+        return true;
     }
 
     @Override

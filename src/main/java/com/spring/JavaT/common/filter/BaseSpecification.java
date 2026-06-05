@@ -2,6 +2,7 @@ package com.spring.JavaT.common.filter;
 
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import org.springframework.data.jpa.domain.Specification;
@@ -69,20 +70,29 @@ public class BaseSpecification<T> implements Specification<T> {
     }
 
     private Predicate buildPredicate(SearchCriteria criterion, Root<T> root, CriteriaBuilder cb) {
-        String field  = criterion.getField();
-        Object value  = criterion.getValue();
+        Path<?> path = resolvePath(root, criterion.getField());
+        Object value = criterion.getValue();
 
         return switch (criterion.getOperator()) {
-            case EQ   -> cb.equal(root.get(field), value);
-            case NEQ  -> cb.notEqual(root.get(field), value);
+            case EQ   -> cb.equal(path, value);
+            case NEQ  -> cb.notEqual(path, value);
             case LIKE -> cb.like(
-                            cb.lower(root.get(field)),
+                            cb.lower(path.as(String.class)),
                             "%" + value.toString().toLowerCase() + "%"
                          );
-            case GT   -> cb.greaterThan(root.get(field), value.toString());
-            case GTE  -> cb.greaterThanOrEqualTo(root.get(field), value.toString());
-            case LT   -> cb.lessThan(root.get(field), value.toString());
-            case LTE  -> cb.lessThanOrEqualTo(root.get(field), value.toString());
+            case GT   -> cb.greaterThan(path.as(String.class), value.toString());
+            case GTE  -> cb.greaterThanOrEqualTo(path.as(String.class), value.toString());
+            case LT   -> cb.lessThan(path.as(String.class), value.toString());
+            case LTE  -> cb.lessThanOrEqualTo(path.as(String.class), value.toString());
         };
+    }
+
+    private Path<?> resolvePath(Root<T> root, String field) {
+        String[] parts = field.split("\\.");
+        Path<?> path = root.get(parts[0]);
+        for (int i = 1; i < parts.length; i++) {
+            path = path.get(parts[i]);
+        }
+        return path;
     }
 }

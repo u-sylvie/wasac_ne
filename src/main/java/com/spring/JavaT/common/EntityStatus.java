@@ -29,5 +29,8 @@ public enum EntityStatus {
     SUSPENDED,
 
     /** Created but awaiting verification or approval. */
-    PENDING
+    PENDING,
+
+    /** Meter disconnected due to prolonged non-payment. */
+    DISCONNECTED
 }

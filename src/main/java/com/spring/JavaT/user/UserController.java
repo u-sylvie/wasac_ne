@@ -6,6 +6,7 @@ import com.spring.JavaT.common.filter.SearchCriteria;
 import com.spring.JavaT.common.pagination.PageResponse;
 import com.spring.JavaT.common.pagination.PaginationUtil;
 import com.spring.JavaT.common.validation.ValidationGroups;
+import com.spring.JavaT.user.dto.AdminCreateUserRequest;
 import com.spring.JavaT.user.dto.UpdatePasswordRequest;
 import com.spring.JavaT.user.dto.UpdateProfileRequest;
 import com.spring.JavaT.user.dto.UpdateRoleRequest;
@@ -27,6 +28,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -115,7 +117,7 @@ public class UserController {
             @Parameter(description = "Sort direction: asc or desc", example = "desc")
             @RequestParam(required = false) String sortDir,
             // Filter params
-            @Parameter(description = "Filter by role: USER, MODERATOR, ADMIN")
+            @Parameter(description = "Filter by role: ADMIN, OPERATOR, FINANCE, CUSTOMER")
             @RequestParam(required = false) String role,
             @Parameter(description = "Filter by status: ACTIVE, INACTIVE, SUSPENDED, PENDING")
             @RequestParam(required = false) String status,
@@ -135,6 +137,18 @@ public class UserController {
         return ResponseBuilder.ok(response, "Users retrieved successfully", request);
     }
 
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Create an operator or finance user — ADMIN only")
+    public ResponseEntity<ApiResponse<UserDto>> createUser(
+            @Valid @RequestBody AdminCreateUserRequest body,
+            @AuthenticationPrincipal UserDetails principal,
+            HttpServletRequest request) {
+
+        UserDto dto = userService.createUserByAdmin(body, principal.getUsername());
+        return ResponseBuilder.created(dto, "User created and credentials emailed successfully", request);
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Get any user by ID — ADMIN only")
@@ -152,9 +166,10 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserDto>> updateRole(
             @PathVariable Long id,
             @Valid @RequestBody UpdateRoleRequest body,
+            @AuthenticationPrincipal UserDetails principal,
             HttpServletRequest request) {
 
-        UserDto dto = userService.updateRole(id, body);
+        UserDto dto = userService.updateRole(id, body, principal.getUsername());
         return ResponseBuilder.ok(dto, "Role updated successfully", request);
     }
 

@@ -15,6 +15,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 /**
@@ -22,17 +23,22 @@ import java.util.function.Function;
  *
  * <p>Token structure:
  * <ul>
- *   <li>{@code sub}  — username (principal identifier)</li>
- *   <li>{@code iss}  — issuer from {@link JwtProperties}</li>
- *   <li>{@code iat}  — issued-at timestamp</li>
- *   <li>{@code exp}  — expiry timestamp</li>
- *   <li>{@code role} — user's role (custom claim)</li>
+ *   <li>{@code sub}        — username (principal identifier)</li>
+ *   <li>{@code iss}        — issuer from {@link JwtProperties}</li>
+ *   <li>{@code iat}        — issued-at timestamp</li>
+ *   <li>{@code exp}        — expiry timestamp</li>
+ *   <li>{@code jti}        — unique token identifier (for revocation)</li>
+ *   <li>{@code tokenType}  — {@link TokenType#ACCESS} or {@link TokenType#REFRESH}</li>
+ *   <li>{@code role}       — user's role (access tokens only, custom claim)</li>
  * </ul>
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class JwtService {
+
+    static final String JTI_CLAIM        = "jti";
+    static final String TOKEN_TYPE_CLAIM = "tokenType";
 
     private final JwtProperties jwtProperties;
 
@@ -54,7 +60,10 @@ public class JwtService {
      * @param userDetails the authenticated principal
      */
     public String generateAccessToken(Map<String, Object> extraClaims, UserDetails userDetails) {
-        return buildToken(extraClaims, userDetails, jwtProperties.getExpirationMs());
+        Map<String, Object> claims = new HashMap<>(extraClaims);
+        claims.put(JTI_CLAIM, UUID.randomUUID().toString());
+        claims.put(TOKEN_TYPE_CLAIM, TokenType.ACCESS.name());
+        return buildToken(claims, userDetails, jwtProperties.getExpirationMs());
     }
 
     /**
@@ -62,7 +71,10 @@ public class JwtService {
      * the standard ones — they are only used to issue new access tokens.
      */
     public String generateRefreshToken(UserDetails userDetails) {
-        return buildToken(new HashMap<>(), userDetails, jwtProperties.getRefreshExpirationMs());
+        Map<String, Object> claims = new HashMap<>();
+        claims.put(JTI_CLAIM, UUID.randomUUID().toString());
+        claims.put(TOKEN_TYPE_CLAIM, TokenType.REFRESH.name());
+        return buildToken(claims, userDetails, jwtProperties.getRefreshExpirationMs());
     }
 
     private String buildToken(Map<String, Object> extraClaims, UserDetails userDetails, long expirationMs) {
@@ -102,6 +114,13 @@ public class JwtService {
         return extractExpiration(token).before(new Date());
     }
 
+    /**
+     * Returns {@code true} if the token carries the {@link TokenType#REFRESH} claim.
+     */
+    public boolean isRefreshToken(String token) {
+        return TokenType.REFRESH.name().equals(extractTokenType(token));
+    }
+
     // -------------------------------------------------------------------------
     // Claim extraction
     // -------------------------------------------------------------------------
@@ -114,6 +133,16 @@ public class JwtService {
     /** Extracts the {@code exp} (expiration) claim. */
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
+    }
+
+    /** Extracts the unique {@code jti} claim. */
+    public String extractJti(String token) {
+        return extractClaim(token, claims -> claims.get(JTI_CLAIM, String.class));
+    }
+
+    /** Extracts the {@code tokenType} claim ({@code ACCESS} or {@code REFRESH}). */
+    public String extractTokenType(String token) {
+        return extractClaim(token, claims -> claims.get(TOKEN_TYPE_CLAIM, String.class));
     }
 
     /**

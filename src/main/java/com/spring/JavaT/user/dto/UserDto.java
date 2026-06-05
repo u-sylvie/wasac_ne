@@ -36,6 +36,9 @@ public class UserDto {
     @Schema(description = "Email address", example = "john.doe@example.com")
     private final String email;
 
+    @Schema(description = "Phone number", example = "+250788123456")
+    private final String phone;
+
     @Schema(description = "Assigned role", example = "USER")
     private final Role role;
 

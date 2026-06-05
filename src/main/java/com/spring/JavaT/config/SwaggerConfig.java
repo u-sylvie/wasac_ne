@@ -16,9 +16,10 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @OpenAPIDefinition(
         info = @Info(
-                title       = "JavaT API",
+                title       = "Utility Billing System API",
                 version     = "1.0",
-                description = "Spring Boot template — authentication, user management, and more"
+                description = "Utility Billing System — customer management, meter readings, tariff configuration, "
+                        + "bill generation, payments, notifications, and file uploads"
         )
 )
 @SecurityScheme(

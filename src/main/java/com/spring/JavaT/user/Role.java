@@ -9,12 +9,22 @@ package com.spring.JavaT.user;
  */
 public enum Role {
 
-    /** Standard authenticated user. */
-    USER,
-
-    /** Moderator with elevated read/write access. */
-    MODERATOR,
-
     /** Full administrative access. */
-    ADMIN
+    ADMIN,
+
+    /** Captures meter readings. */
+    OPERATOR,
+
+    /** Approves bills and payments. */
+    FINANCE,
+
+    /** Views bills and payment history. */
+    CUSTOMER,
+
+    /**
+     * Backward-compatible roles kept from the original template.
+     * These may exist in the database for previously created records.
+     */
+    USER,
+    MODERATOR
 }

@@ -2,6 +2,7 @@ package com.spring.JavaT.config;
 
 import com.spring.JavaT.security.AccessDeniedHandlerImpl;
 import com.spring.JavaT.security.JwtAuthenticationFilter;
+import com.spring.JavaT.security.MustChangePasswordFilter;
 import com.spring.JavaT.security.SecurityEntryPoint;
 import com.spring.JavaT.security.SecurityProperties;
 import com.spring.JavaT.security.UserDetailsServiceImpl;
@@ -13,6 +14,7 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -43,8 +45,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter  jwtAuthFilter;
-    private final UserDetailsServiceImpl   userDetailsService;
+    private final JwtAuthenticationFilter     jwtAuthFilter;
+    private final MustChangePasswordFilter    mustChangePasswordFilter;
+    private final UserDetailsServiceImpl      userDetailsService;
     private final SecurityEntryPoint       securityEntryPoint;
     private final AccessDeniedHandlerImpl  accessDeniedHandler;
     private final SecurityProperties       securityProperties;
@@ -70,6 +73,7 @@ public class SecurityConfig {
 
             // Authorization rules
             .authorizeHttpRequests(auth -> auth
+                    .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
                     .requestMatchers(securityProperties.getPublicPaths().toArray(String[]::new)).permitAll()
                     .anyRequest().authenticated())
 
@@ -77,7 +81,8 @@ public class SecurityConfig {
             .authenticationProvider(authenticationProvider())
 
             // JWT filter runs before Spring's username/password filter
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(mustChangePasswordFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

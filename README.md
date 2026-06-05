@@ -124,7 +124,7 @@ Sample data (V9): customer **Eric Customer**, water meter `WTR-0001`, electricit
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/auth/register` | Register + welcome email |
+| POST | `/auth/register` | Self-register (creates user + customer profile with NID) |
 | POST | `/auth/login` | Login → access + refresh tokens |
 | POST | `/auth/refresh` | Refresh token pair |
 | POST | `/auth/logout` | Blacklist current access token |
@@ -138,7 +138,7 @@ Sample data (V9): customer **Eric Customer**, water meter `WTR-0001`, electricit
 
 | Module | Path | Roles |
 |---|---|---|
-| Customers | `/customers`, `/customers/by-national-id/{nid}` | ADMIN (create), ADMIN/FINANCE/OPERATOR (lookup) |
+| Customers | `/customers`, `/customers/by-national-id/{nid}` | Self-register via `/auth/register`; ADMIN can also create/link profiles |
 | Meters | `/meters` | ADMIN |
 | Meter Readings | `/meter-readings` | OPERATOR (create) |
 | Tariffs | `/tariffs` | ADMIN |
@@ -267,17 +267,31 @@ Max file size: **5 MB** (configured in `application.properties`).
 
 ## Sample Request Bodies (Swagger / Postman)
 
-**Register**
+**Self-register (creates login + billing customer — returns `customerId`)**
 ```json
 {
   "firstName": "Marie",
   "lastName": "Uwera",
+  "nationalId": "119998877665544",
   "username": "marieuwera",
   "email": "marie@example.com",
-  "phone": "+250788999888",
+  "phone": "0788123456",
+  "address": "Kigali, Gasabo",
+  "dateOfBirth": "1995-03-15",
   "password": "Secret@123"
 }
 ```
+
+**Create meter (ADMIN) — prefix must match type**
+```json
+{
+  "customerId": 2,
+  "meterNumber": "WTR-0002",
+  "meterType": "WATER",
+  "installationDate": "2026-01-15"
+}
+```
+Water → `WTR-####` only. Electricity → `ELC-####` only (e.g. `ELC-0001`).
 
 **Meter reading (OPERATOR)**
 ```json
@@ -291,7 +305,7 @@ Max file size: **5 MB** (configured in `application.properties`).
 }
 ```
 
-**Create customer (ADMIN) — National ID required**
+**Create customer (ADMIN) — for staff or legacy accounts without self-registration**
 ```json
 {
   "fullName": "Marie Uwera",
@@ -299,7 +313,8 @@ Max file size: **5 MB** (configured in `application.properties`).
   "email": "marie@example.com",
   "phone": "0788123456",
   "address": "Kigali, Nyarugenge",
-  "dateOfBirth": "1995-03-15"
+  "dateOfBirth": "1995-03-15",
+  "userId": 12
 }
 ```
 

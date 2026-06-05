@@ -44,7 +44,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    @Operation(summary = "Register a new customer account — public (no auth required)")
+    @Operation(summary = "Self-register as customer (creates user + billing profile with NID) — public")
     public ResponseEntity<ApiResponse<AuthResponse>> register(
             @Validated(ValidationGroups.OnCreate.class) @RequestBody RegisterRequest request,
             HttpServletRequest httpRequest) {

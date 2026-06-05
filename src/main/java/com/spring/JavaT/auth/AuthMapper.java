@@ -49,5 +49,6 @@ public interface AuthMapper {
     @Mapping(target = "deletedAt", ignore = true)
     @Mapping(target = "deletedBy", ignore = true)
     @Mapping(target = "status",    ignore = true)
+    @Mapping(target = "mustChangePassword", ignore = true)
     User toUser(RegisterRequest request);
 }

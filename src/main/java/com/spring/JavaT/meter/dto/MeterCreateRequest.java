@@ -1,6 +1,7 @@
 package com.spring.JavaT.meter.dto;
 
 import com.spring.JavaT.common.MeterType;
+import com.spring.JavaT.common.validation.ValidMeterNumber;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -12,10 +13,12 @@ import java.time.LocalDate;
 
 @Getter
 @Setter
+@ValidMeterNumber
 public class MeterCreateRequest {
     @Schema(description = "Billing customer ID from GET /customers (NOT the user login id)", example = "1")
     @NotNull
     private Long customerId;
+    @Schema(description = "WATER: WTR-0001 | ELECTRICITY: ELC-0001", example = "WTR-0001")
     @NotBlank @Size(max = 50)
     private String meterNumber;
     @NotNull

@@ -38,4 +38,7 @@ public class AuthResponse {
 
     @Schema(description = "True when the user must change a temporary password before using the API")
     private final Boolean mustChangePassword;
+
+    @Schema(description = "Billing customer ID — returned on self-registration only", example = "2")
+    private final Long customerId;
 }

@@ -5,6 +5,7 @@ import com.spring.JavaT.common.filter.BaseSpecification;
 import com.spring.JavaT.common.filter.SearchCriteria;
 import com.spring.JavaT.customer.Customer;
 import com.spring.JavaT.customer.CustomerService;
+import com.spring.JavaT.common.validation.MeterNumberValidator;
 import com.spring.JavaT.exception.DuplicateResourceException;
 import com.spring.JavaT.exception.ResourceNotFoundException;
 import com.spring.JavaT.meter.dto.MeterCreateRequest;
@@ -71,7 +72,8 @@ public class MeterService {
     private void apply(Meter meter, Long customerId, String meterNumber, com.spring.JavaT.common.MeterType meterType, java.time.LocalDate installationDate) {
         // customerId must be from the customers table — not the users table
         meter.setCustomer(customerService.requireForAssignment(customerId));
-        meter.setMeterNumber(meterNumber);
+        MeterNumberValidator.validate(meterType, meterNumber);
+        meter.setMeterNumber(meterNumber.trim().toUpperCase());
         meter.setMeterType(meterType);
         meter.setInstallationDate(installationDate);
     }

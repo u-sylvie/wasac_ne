@@ -79,7 +79,7 @@ public class MeterController {
     @Operation(summary = "Update a meter — ADMIN only")
     public ResponseEntity<ApiResponse<MeterResponse>> update(
             @PathVariable Long id,
-            @RequestBody MeterUpdateRequest body,
+            @Valid @RequestBody MeterUpdateRequest body,
             @AuthenticationPrincipal UserDetails principal,
             HttpServletRequest request) {
         return ResponseBuilder.ok(meterService.update(id, body, principal.getUsername()), "Meter updated successfully", request);

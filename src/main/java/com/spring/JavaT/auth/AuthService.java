@@ -20,6 +20,10 @@ import com.spring.JavaT.common.EntityStatus;
 
 import com.spring.JavaT.common.OtpPurpose;
 
+import com.spring.JavaT.customer.Customer;
+
+import com.spring.JavaT.customer.CustomerService;
+
 import com.spring.JavaT.exception.BusinessException;
 
 import com.spring.JavaT.exception.DuplicateResourceException;
@@ -112,6 +116,8 @@ public class AuthService {
 
     private final EmailService                       emailService;
 
+    private final CustomerService                    customerService;
+
 
 
     private final SecureRandom secureRandom = new SecureRandom();
@@ -174,6 +180,9 @@ public class AuthService {
 
         }
 
+        // Ensure National ID / email / phone are unique in the customers table before we create both records
+        customerService.validateAvailableForRegistration(request);
+
 
 
         User user = authMapper.toUser(request);
@@ -188,6 +197,9 @@ public class AuthService {
 
         userRepository.save(user);
 
+        // Auto-create linked billing customer — no admin step required
+        Customer customer = customerService.createFromSelfRegistration(user, request);
+
 
 
         issueAndSendVerificationToken(user);
@@ -196,7 +208,7 @@ public class AuthService {
 
 
 
-        return buildAuthResponse(user);
+        return buildAuthResponse(user, customer.getId());
 
     }
 
@@ -560,6 +572,14 @@ public class AuthService {
 
     private AuthResponse buildAuthResponse(User user) {
 
+        return buildAuthResponse(user, null);
+
+    }
+
+
+
+    private AuthResponse buildAuthResponse(User user, Long customerId) {
+
         Map<String, Object> extraClaims = Map.of("role", user.getRole().name());
 
 
@@ -583,6 +603,8 @@ public class AuthService {
                 .role(user.getRole().name())
 
                 .mustChangePassword(user.isMustChangePassword())
+
+                .customerId(customerId)
 
                 .build();
 

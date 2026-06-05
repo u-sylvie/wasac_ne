@@ -3,6 +3,7 @@ package com.spring.JavaT.customer;
 import com.spring.JavaT.audit.AuditService;
 import com.spring.JavaT.common.filter.BaseSpecification;
 import com.spring.JavaT.common.filter.SearchCriteria;
+import com.spring.JavaT.auth.dto.RegisterRequest;
 import com.spring.JavaT.customer.dto.CustomerCreateRequest;
 import com.spring.JavaT.customer.dto.CustomerResponse;
 import com.spring.JavaT.customer.dto.CustomerUpdateRequest;
@@ -47,6 +48,40 @@ public class CustomerService {
         return CustomerMapper.toResponse(
                 customerRepository.findByNationalId(normalized)
                         .orElseThrow(() -> new ResourceNotFoundException("Customer", "nationalId", normalized)));
+    }
+
+    /**
+     * Ensures National ID, email, and phone are not already used by another customer
+     * before a self-registration completes.
+     */
+    public void validateAvailableForRegistration(RegisterRequest request) {
+        validateDuplicates(
+                normalizeNationalId(request.getNationalId()),
+                request.getEmail().strip().toLowerCase(),
+                request.getPhone().strip(),
+                null);
+        validateAge(request.getDateOfBirth());
+    }
+
+    /**
+     * Creates a billing customer profile linked to a newly registered CUSTOMER user.
+     * Called automatically from {@link com.spring.JavaT.auth.AuthService#register}.
+     */
+    @Transactional
+    public Customer createFromSelfRegistration(User user, RegisterRequest request) {
+        String nationalId = normalizeNationalId(request.getNationalId());
+        String fullName = request.getFirstName().strip() + " " + request.getLastName().strip();
+        Customer customer = new Customer();
+        apply(customer, fullName, nationalId,
+                request.getEmail().strip().toLowerCase(),
+                request.getPhone().strip(),
+                request.getAddress().strip(),
+                request.getDateOfBirth(),
+                user.getId());
+        Customer saved = customerRepository.save(customer);
+        auditService.log("Customer", saved.getId(), "CREATE", user.getEmail(),
+                "Self-registration: customer " + saved.getNationalId() + " linked to user " + user.getEmail());
+        return saved;
     }
 
     @Transactional
@@ -181,9 +216,8 @@ public class CustomerService {
             if (userRepository.existsById(customerId)) {
                 throw new BusinessException(
                         "ID " + customerId + " is a user account ID, not a billing customer ID. "
-                                + "Self-registration only creates a login account. "
-                                + "An ADMIN must create a customer via POST /api/v1/customers "
-                                + "(set userId to link the login), then use the returned customer id here.",
+                                + "Use the customerId returned from POST /api/v1/auth/register, "
+                                + "or GET /api/v1/customers for an existing billing profile.",
                         HttpStatus.BAD_REQUEST,
                         "USER_ID_NOT_CUSTOMER_ID");
             }

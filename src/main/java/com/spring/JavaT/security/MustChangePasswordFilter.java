@@ -54,7 +54,8 @@ public class MustChangePasswordFilter extends OncePerRequestFilter {
                 boolean allowed = ALLOWED_PATHS.stream().anyMatch(path::startsWith);
                 if (!allowed) {
                     writeForbidden(response, path,
-                            "You must change your temporary password before continuing.");
+                            "You must change your temporary password before continuing. "
+                                    + "Use PATCH /api/v1/users/me/password with your current (temporary) password.");
                     return;
                 }
             }

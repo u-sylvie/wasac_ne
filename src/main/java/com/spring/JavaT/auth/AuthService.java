@@ -689,6 +689,7 @@ public class AuthService {
         User user = resetToken.getUser();
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setMustChangePassword(false);
 
         userRepository.save(user);
 

@@ -8,6 +8,7 @@ import com.spring.JavaT.bill.BillRepository;
 import com.spring.JavaT.exception.BusinessException;
 import com.spring.JavaT.exception.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
+import com.spring.JavaT.notification.NotificationService;
 import com.spring.JavaT.payment.dto.PaymentCreateRequest;
 import com.spring.JavaT.payment.dto.PaymentResponse;
 import jakarta.persistence.EntityManager;
@@ -34,6 +35,7 @@ public class PaymentService {
     private final EntityManager entityManager;
     private final AuditService auditService;
     private final SecurityHelper securityHelper;
+    private final NotificationService notificationService;
 
     public Page<PaymentResponse> getAll(List<SearchCriteria> criteria, Pageable pageable) {
         Specification<Payment> spec = new BaseSpecification<>(criteria);
@@ -96,6 +98,10 @@ public class PaymentService {
         auditService.log("Payment", payment.getId(), "CREATE", actor,
                 "Recorded payment of " + payment.getAmountPaid() + " for bill " + payment.getBill().getReference());
         log.info("Payment {} recorded for bill {}", payment.getReference(), payment.getBill().getReference());
+
+        // sp_record_payment may have queued PAYMENT_COMPLETED — dispatch emails now
+        notificationService.sendPendingEmails(actor);
+
         return PaymentMapper.toResponse(payment);
     }
 

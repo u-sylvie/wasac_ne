@@ -112,9 +112,11 @@ Sample data (V9): customer **Eric Customer**, water meter `WTR-0001`, electricit
 2. **Login** as `admin@javat.com` → `POST /api/v1/bills/generate`
 3. **Approve bill** → `PATCH /api/v1/bills/{id}/approve`
 4. **Login** as `finance@wasac.rw` → `POST /api/v1/payments`
-5. **Check notifications** → `GET /api/v1/notifications`
-6. **Dispatch emails** → `POST /api/v1/notifications/send-pending-emails`
+5. **Check notifications** → `GET /api/v1/notifications` (rows created by DB trigger + stored procedure)
+6. **Emails dispatch automatically** — scheduler every 2 min + immediately after payment; or force: `POST /api/v1/notifications/send-pending-emails`
 7. **Customer view** → login as `customer@wasac.rw` → `GET /api/v1/bills/me`
+
+See **[docs/SPRING_BOOT_FLOW.md](docs/SPRING_BOOT_FLOW.md)** for full flow diagrams and SQL to inspect triggers.
 
 ---
 

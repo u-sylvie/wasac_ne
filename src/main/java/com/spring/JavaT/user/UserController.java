@@ -63,7 +63,7 @@ public class UserController {
     // =========================================================================
 
     @GetMapping("/me")
-    @Operation(summary = "Get the authenticated user's profile")
+    @Operation(summary = "Get the authenticated user's profile — any authenticated user")
     public ResponseEntity<ApiResponse<UserDto>> getMyProfile(
             @AuthenticationPrincipal UserDetails principal,
             HttpServletRequest request) {
@@ -73,7 +73,7 @@ public class UserController {
     }
 
     @PatchMapping("/me")
-    @Operation(summary = "Update the authenticated user's profile (name, username)")
+    @Operation(summary = "Update the authenticated user's profile — any authenticated user")
     public ResponseEntity<ApiResponse<UserDto>> updateMyProfile(
             @AuthenticationPrincipal UserDetails principal,
             @Validated(ValidationGroups.OnPatch.class) @RequestBody UpdateProfileRequest body,
@@ -84,7 +84,7 @@ public class UserController {
     }
 
     @PatchMapping("/me/password")
-    @Operation(summary = "Change the authenticated user's password")
+    @Operation(summary = "Change password (required after admin-created account) — any authenticated user")
     public ResponseEntity<ApiResponse<Void>> updateMyPassword(
             @AuthenticationPrincipal UserDetails principal,
             @Valid @RequestBody UpdatePasswordRequest body,

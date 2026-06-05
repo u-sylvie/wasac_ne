@@ -145,7 +145,7 @@ Sample data (V9): customer **Eric Customer**, water meter `WTR-0001`, electricit
 | Bills | `/bills`, `/bills/me` | ADMIN, FINANCE, CUSTOMER |
 | Payments | `/payments`, `/payments/me` | FINANCE, CUSTOMER |
 | Notifications | `/notifications`, `/notifications/me` | ADMIN, FINANCE, CUSTOMER |
-| Files | `/files` | Authenticated |
+| Files | `/files` | Any authenticated user (upload/list); ADMIN/FINANCE (delete) |
 | Audit Logs | `/audit-logs` | ADMIN, FINANCE |
 | Users | `/users` | ADMIN + self-service `/me` |
 
@@ -233,6 +233,35 @@ src/main/resources/
 - [x] File upload
 - [x] Layered architecture (Controller → Service → Repository)
 - [x] Database routines (trigger + stored procedure)
+
+---
+
+## File Upload — When and How to Use
+
+Files attach **supporting documents** to any business record. Use after creating the parent entity.
+
+| entityType | entityId | Example document |
+|---|---|---|
+| `Customer` | customer id | National ID scan, signed application |
+| `Meter` | meter id | Installation photo, inspection certificate |
+| `MeterReading` | reading id | Field photo of meter dial (operator proof) |
+| `Bill` | bill id | Printed bill PDF, dispute evidence |
+| `Payment` | payment id | MoMo/bank transfer receipt screenshot |
+
+**Upload (Swagger — multipart form):**
+```
+POST /api/v1/files
+  file:         <choose file>
+  entityType:   Customer
+  entityId:     1
+```
+
+**List files for a customer:**
+```
+GET /api/v1/files?entityType=Customer&entityId=1
+```
+
+Max file size: **5 MB** (configured in `application.properties`).
 
 ---
 

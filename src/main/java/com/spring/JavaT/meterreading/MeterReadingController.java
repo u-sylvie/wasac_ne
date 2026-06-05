@@ -7,6 +7,9 @@ import com.spring.JavaT.common.pagination.PageResponse;
 import com.spring.JavaT.common.pagination.PaginationUtil;
 import com.spring.JavaT.meterreading.dto.MeterReadingCreateRequest;
 import com.spring.JavaT.meterreading.dto.MeterReadingResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,9 +25,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Field meter readings captured by operators — basis for monthly billing.
+ */
 @RestController
 @RequestMapping("/api/v1/meter-readings")
 @RequiredArgsConstructor
+@Tag(name = "Meter Readings", description = "Record monthly water/electricity consumption readings")
+@SecurityRequirement(name = "bearerAuth")
 public class MeterReadingController {
 
     private static final Set<String> SORT_FIELDS = Set.of(
@@ -35,6 +43,7 @@ public class MeterReadingController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','FINANCE')")
+    @Operation(summary = "List meter readings — ADMIN, OPERATOR, or FINANCE only")
     public ResponseEntity<ApiResponse<PageResponse<MeterReadingResponse>>> list(
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
@@ -57,6 +66,7 @@ public class MeterReadingController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','FINANCE')")
+    @Operation(summary = "Get meter reading by ID — ADMIN, OPERATOR, or FINANCE only")
     public ResponseEntity<ApiResponse<MeterReadingResponse>> getById(
             @PathVariable Long id,
             HttpServletRequest request) {
@@ -65,6 +75,7 @@ public class MeterReadingController {
 
     @PostMapping
     @PreAuthorize("hasRole('OPERATOR')")
+    @Operation(summary = "Record a new meter reading — OPERATOR only")
     public ResponseEntity<ApiResponse<MeterReadingResponse>> create(
             @Valid @RequestBody MeterReadingCreateRequest body,
             @AuthenticationPrincipal UserDetails principal,
@@ -77,6 +88,7 @@ public class MeterReadingController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Delete a meter reading — ADMIN only")
     public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails principal,

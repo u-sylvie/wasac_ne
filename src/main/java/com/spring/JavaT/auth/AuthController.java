@@ -44,7 +44,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    @Operation(summary = "Register a new user account")
+    @Operation(summary = "Register a new customer account — public (no auth required)")
     public ResponseEntity<ApiResponse<AuthResponse>> register(
             @Validated(ValidationGroups.OnCreate.class) @RequestBody RegisterRequest request,
             HttpServletRequest httpRequest) {
@@ -54,7 +54,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    @Operation(summary = "Login with email and password")
+    @Operation(summary = "Login with email and password — public (no auth required)")
     public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Validated @RequestBody LoginRequest request,
             HttpServletRequest httpRequest) {
@@ -64,7 +64,7 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    @Operation(summary = "Exchange a refresh token for a new access/refresh token pair")
+    @Operation(summary = "Refresh JWT token pair — public (no auth required)")
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(
             @Valid @RequestBody RefreshTokenRequest request,
             HttpServletRequest httpRequest) {
@@ -74,7 +74,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    @Operation(summary = "Invalidate the current access token")
+    @Operation(summary = "Logout and revoke access token — authenticated only")
     public ResponseEntity<ApiResponse<Void>> logout(
             @RequestHeader(value = AUTHORIZATION_HEADER, required = false) String authHeader,
             HttpServletRequest httpRequest) {
@@ -85,7 +85,7 @@ public class AuthController {
     }
 
     @PostMapping("/send-otp")
-    @Operation(summary = "Send a one-time password to the user's email")
+    @Operation(summary = "Send OTP to email (EMAIL_VERIFICATION or PASSWORD_RESET) — public")
     public ResponseEntity<ApiResponse<Void>> sendOtp(
             @Valid @RequestBody ResendOtpRequest request,
             HttpServletRequest httpRequest) {
@@ -97,7 +97,7 @@ public class AuthController {
     }
 
     @PostMapping("/verify-otp")
-    @Operation(summary = "Verify a one-time password")
+    @Operation(summary = "Verify OTP code — public (no auth required)")
     public ResponseEntity<ApiResponse<Void>> verifyOtp(
             @Valid @RequestBody VerifyOtpRequest request,
             HttpServletRequest httpRequest) {
@@ -107,7 +107,7 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    @Operation(summary = "Request a password reset email and OTP")
+    @Operation(summary = "Request password reset link and OTP — public (no auth required)")
     public ResponseEntity<ApiResponse<Void>> forgotPassword(
             @Valid @RequestBody ForgotPasswordRequest request,
             HttpServletRequest httpRequest) {
@@ -119,7 +119,7 @@ public class AuthController {
     }
 
     @PostMapping("/reset-password")
-    @Operation(summary = "Reset password using the token from email")
+    @Operation(summary = "Complete password reset with email link token — public (no auth required)")
     public ResponseEntity<ApiResponse<Void>> resetPassword(
             @Valid @RequestBody ResetPasswordRequest request,
             HttpServletRequest httpRequest) {
@@ -129,7 +129,7 @@ public class AuthController {
     }
 
     @GetMapping("/verify-email")
-    @Operation(summary = "Verify email address using the token from the verification email")
+    @Operation(summary = "Activate account via email verification link — public (no auth required)")
     public ResponseEntity<ApiResponse<Void>> verifyEmail(
             @RequestParam String token,
             HttpServletRequest httpRequest) {
@@ -139,7 +139,7 @@ public class AuthController {
     }
 
     @PostMapping("/resend-verification")
-    @Operation(summary = "Resend the email verification link")
+    @Operation(summary = "Resend email verification link — public (no auth required)")
     public ResponseEntity<ApiResponse<Void>> resendVerification(
             @Valid @RequestBody ForgotPasswordRequest request,
             HttpServletRequest httpRequest) {

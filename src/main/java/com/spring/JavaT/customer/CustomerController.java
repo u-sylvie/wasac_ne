@@ -11,6 +11,8 @@ import com.spring.JavaT.customer.dto.CustomerResponse;
 import com.spring.JavaT.customer.dto.CustomerUpdateRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,17 +29,22 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Customer management — National ID is the primary business identifier.
+ */
 @RestController
 @RequestMapping("/api/v1/customers")
 @RequiredArgsConstructor
 @Validated
+@Tag(name = "Customer Management", description = "Register and manage utility billing customers")
+@SecurityRequirement(name = "bearerAuth")
 public class CustomerController {
     private static final Set<String> SORT_FIELDS = Set.of("id", "fullName", "email", "nationalId", "status", "createdAt");
     private final CustomerService customerService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
-    @Operation(summary = "List customers — filter by nationalId (exact) or search email/name/nationalId")
+    @Operation(summary = "List customers with optional filters — ADMIN or FINANCE only")
     public ResponseEntity<ApiResponse<PageResponse<CustomerResponse>>> list(
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
@@ -45,7 +52,7 @@ public class CustomerController {
             @RequestParam(required = false) String sortDir,
             @Parameter(description = "Exact match on 16-digit National ID")
             @RequestParam(required = false) String nationalId,
-            @Parameter(description = "Partial match on email, full name, or national ID")
+            @Parameter(description = "Partial match on full name")
             @RequestParam(required = false) String search,
             HttpServletRequest request) {
         Pageable pageable = PaginationUtil.toPageable(page, size, sortBy, sortDir, SORT_FIELDS);
@@ -62,7 +69,7 @@ public class CustomerController {
 
     @GetMapping("/by-national-id/{nationalId}")
     @PreAuthorize("hasAnyRole('ADMIN','FINANCE','OPERATOR')")
-    @Operation(summary = "Look up a customer by Rwanda National ID (16 digits)")
+    @Operation(summary = "Look up customer by Rwanda National ID — ADMIN, FINANCE, or OPERATOR")
     public ResponseEntity<ApiResponse<CustomerResponse>> getByNationalId(
             @PathVariable @ValidRwandaNationalId String nationalId,
             HttpServletRequest request) {
@@ -74,12 +81,14 @@ public class CustomerController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
+    @Operation(summary = "Get customer by ID — ADMIN or FINANCE only")
     public ResponseEntity<ApiResponse<CustomerResponse>> getById(@PathVariable Long id, HttpServletRequest request) {
         return ResponseBuilder.ok(customerService.getById(id), "Customer retrieved successfully", request);
     }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Create a new customer — ADMIN only")
     public ResponseEntity<ApiResponse<CustomerResponse>> create(
             @Valid @RequestBody CustomerCreateRequest body,
             @AuthenticationPrincipal UserDetails principal,
@@ -89,6 +98,7 @@ public class CustomerController {
 
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Update a customer — ADMIN only")
     public ResponseEntity<ApiResponse<CustomerResponse>> update(
             @PathVariable Long id,
             @Valid @RequestBody CustomerUpdateRequest body,
@@ -99,6 +109,7 @@ public class CustomerController {
 
     @PatchMapping("/{id}/deactivate")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Deactivate a customer — ADMIN only")
     public ResponseEntity<ApiResponse<CustomerResponse>> deactivate(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails principal,
@@ -108,6 +119,7 @@ public class CustomerController {
 
     @PatchMapping("/{id}/activate")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Reactivate a customer — ADMIN only")
     public ResponseEntity<ApiResponse<CustomerResponse>> activate(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails principal,
@@ -117,6 +129,7 @@ public class CustomerController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Delete a customer — ADMIN only")
     public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails principal,

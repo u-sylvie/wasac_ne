@@ -14,6 +14,10 @@ import lombok.Setter;
 
 import java.time.Instant;
 
+/**
+ * Metadata for a file stored on disk — linked to a business entity via entityType/entityId.
+ * Physical files live under {@code uploads/}; this table tracks who uploaded what and when.
+ */
 @Getter
 @Setter
 @Builder

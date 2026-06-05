@@ -34,7 +34,7 @@ public class AuditController {
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "List all audit logs (paginated)")
+    @Operation(summary = "List all audit logs (paginated) — ADMIN only")
     public ResponseEntity<ApiResponse<PageResponse<AuditLog>>> listAll(
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
@@ -49,7 +49,7 @@ public class AuditController {
 
     @GetMapping("/{entityName}/{entityId}")
     @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
-    @Operation(summary = "List audit logs for a specific entity")
+    @Operation(summary = "List audit logs for a specific entity — ADMIN or FINANCE only")
     public ResponseEntity<ApiResponse<PageResponse<AuditLog>>> listForEntity(
             @PathVariable String entityName,
             @PathVariable Long entityId,

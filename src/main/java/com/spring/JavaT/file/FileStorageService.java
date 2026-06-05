@@ -20,6 +20,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Stores uploaded files on disk and records metadata in {@code uploaded_files}.
+ *
+ * <p>Files are linked to any business entity via {@code entityType} + {@code entityId}
+ * (e.g. attach a National ID scan to a Customer, or a MoMo receipt to a Payment).
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

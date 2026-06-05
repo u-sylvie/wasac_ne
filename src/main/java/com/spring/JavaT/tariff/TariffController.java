@@ -7,6 +7,9 @@ import com.spring.JavaT.common.pagination.PageResponse;
 import com.spring.JavaT.common.pagination.PaginationUtil;
 import com.spring.JavaT.tariff.dto.TariffCreateRequest;
 import com.spring.JavaT.tariff.dto.TariffResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,9 +25,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Versioned water and electricity tariff configuration.
+ */
 @RestController
 @RequestMapping("/api/v1/tariffs")
 @RequiredArgsConstructor
+@Tag(name = "Tariff Management", description = "Configure versioned water and electricity pricing")
+@SecurityRequirement(name = "bearerAuth")
 public class TariffController {
 
     private static final Set<String> SORT_FIELDS = Set.of(
@@ -35,6 +43,7 @@ public class TariffController {
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "List tariff versions — ADMIN only")
     public ResponseEntity<ApiResponse<PageResponse<TariffResponse>>> list(
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
@@ -61,6 +70,7 @@ public class TariffController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Get tariff by ID — ADMIN only")
     public ResponseEntity<ApiResponse<TariffResponse>> getById(
             @PathVariable Long id,
             HttpServletRequest request) {
@@ -69,6 +79,7 @@ public class TariffController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Create a new tariff version — ADMIN only")
     public ResponseEntity<ApiResponse<TariffResponse>> create(
             @Valid @RequestBody TariffCreateRequest body,
             @AuthenticationPrincipal UserDetails principal,
@@ -81,6 +92,7 @@ public class TariffController {
 
     @PatchMapping("/{id}/deactivate")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Deactivate a tariff version — ADMIN only")
     public ResponseEntity<ApiResponse<TariffResponse>> deactivate(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails principal,

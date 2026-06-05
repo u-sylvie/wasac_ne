@@ -9,6 +9,9 @@ import com.spring.JavaT.common.pagination.PaginationUtil;
 import com.spring.JavaT.customer.Customer;
 import com.spring.JavaT.payment.dto.PaymentCreateRequest;
 import com.spring.JavaT.payment.dto.PaymentResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,9 +27,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Payment recording against approved bills — uses stored procedure {@code sp_record_payment}.
+ */
 @RestController
 @RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
+@Tag(name = "Payment Management", description = "Record and view bill payments")
+@SecurityRequirement(name = "bearerAuth")
 public class PaymentController {
 
     private static final Set<String> SORT_FIELDS = Set.of(
@@ -38,6 +46,7 @@ public class PaymentController {
 
     @GetMapping
     @PreAuthorize("hasRole('FINANCE')")
+    @Operation(summary = "List all payments — FINANCE only")
     public ResponseEntity<ApiResponse<PageResponse<PaymentResponse>>> list(
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
@@ -55,6 +64,7 @@ public class PaymentController {
 
     @GetMapping("/me")
     @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "List own payments — CUSTOMER only")
     public ResponseEntity<ApiResponse<PageResponse<PaymentResponse>>> myPayments(
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
@@ -71,6 +81,7 @@ public class PaymentController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('FINANCE')")
+    @Operation(summary = "Get payment by ID — FINANCE only")
     public ResponseEntity<ApiResponse<PaymentResponse>> getById(
             @PathVariable Long id,
             HttpServletRequest request) {
@@ -79,6 +90,7 @@ public class PaymentController {
 
     @GetMapping("/me/{id}")
     @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "Get own payment by ID — CUSTOMER only")
     public ResponseEntity<ApiResponse<PaymentResponse>> getMyPayment(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails principal,
@@ -91,6 +103,7 @@ public class PaymentController {
 
     @PostMapping
     @PreAuthorize("hasRole('FINANCE')")
+    @Operation(summary = "Record a payment against an approved bill — FINANCE only")
     public ResponseEntity<ApiResponse<PaymentResponse>> record(
             @Valid @RequestBody PaymentCreateRequest body,
             @AuthenticationPrincipal UserDetails principal,

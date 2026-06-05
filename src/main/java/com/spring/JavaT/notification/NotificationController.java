@@ -8,6 +8,9 @@ import com.spring.JavaT.common.pagination.PageResponse;
 import com.spring.JavaT.common.pagination.PaginationUtil;
 import com.spring.JavaT.customer.Customer;
 import com.spring.JavaT.notification.dto.NotificationResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -23,9 +26,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * In-app bill/payment notifications — created by DB trigger and stored procedure.
+ */
 @RestController
 @RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
+@Tag(name = "Notifications", description = "Bill and payment notifications for customers")
+@SecurityRequirement(name = "bearerAuth")
 public class NotificationController {
 
     private static final Set<String> SORT_FIELDS = Set.of(
@@ -37,6 +45,7 @@ public class NotificationController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
+    @Operation(summary = "List all notifications — ADMIN or FINANCE only")
     public ResponseEntity<ApiResponse<PageResponse<NotificationResponse>>> list(
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
@@ -55,6 +64,7 @@ public class NotificationController {
 
     @GetMapping("/me")
     @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "List own notifications — CUSTOMER only")
     public ResponseEntity<ApiResponse<PageResponse<NotificationResponse>>> myNotifications(
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
@@ -73,6 +83,7 @@ public class NotificationController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
+    @Operation(summary = "Get notification by ID — ADMIN or FINANCE only")
     public ResponseEntity<ApiResponse<NotificationResponse>> getById(
             @PathVariable Long id,
             HttpServletRequest request) {
@@ -81,6 +92,7 @@ public class NotificationController {
 
     @PatchMapping("/{id}/read")
     @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
+    @Operation(summary = "Mark notification as read — ADMIN or FINANCE only")
     public ResponseEntity<ApiResponse<NotificationResponse>> markRead(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails principal,
@@ -93,6 +105,7 @@ public class NotificationController {
 
     @PatchMapping("/me/{id}/read")
     @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "Mark own notification as read — CUSTOMER only")
     public ResponseEntity<ApiResponse<NotificationResponse>> markMyNotificationRead(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails principal,
@@ -105,6 +118,7 @@ public class NotificationController {
 
     @PostMapping("/send-pending-emails")
     @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
+    @Operation(summary = "Send queued notification emails — ADMIN or FINANCE only")
     public ResponseEntity<ApiResponse<Map<String, Integer>>> sendPendingEmails(
             @AuthenticationPrincipal UserDetails principal,
             HttpServletRequest request) {

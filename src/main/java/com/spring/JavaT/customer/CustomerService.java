@@ -42,23 +42,35 @@ public class CustomerService {
         return CustomerMapper.toResponse(findOrThrow(id));
     }
 
+    public CustomerResponse getByNationalId(String nationalId) {
+        String normalized = normalizeNationalId(nationalId);
+        return CustomerMapper.toResponse(
+                customerRepository.findByNationalId(normalized)
+                        .orElseThrow(() -> new ResourceNotFoundException("Customer", "nationalId", normalized)));
+    }
+
     @Transactional
     public CustomerResponse create(CustomerCreateRequest request, String actor) {
-        validateDuplicates(request.getNationalId(), request.getEmail(), request.getPhone(), null);
+        String nationalId = normalizeNationalId(request.getNationalId());
+        validateDuplicates(nationalId, request.getEmail(), request.getPhone(), null);
         validateAge(request.getDateOfBirth());
         Customer customer = new Customer();
-        apply(customer, request.getFullName(), request.getNationalId(), request.getEmail(),
+        apply(customer, request.getFullName(), nationalId, request.getEmail(),
                 request.getPhone(), request.getAddress(), request.getDateOfBirth(), request.getUserId());
         Customer saved = customerRepository.save(customer);
-        auditService.log("Customer", saved.getId(), "CREATE", actor, "Created customer " + saved.getEmail());
+        auditService.log("Customer", saved.getId(), "CREATE", actor,
+                "Created customer NID=" + saved.getNationalId() + " email=" + saved.getEmail());
         return CustomerMapper.toResponse(saved);
     }
 
     @Transactional
     public CustomerResponse update(Long id, CustomerUpdateRequest request, String actor) {
         Customer customer = findOrThrow(id);
+        String nationalId = request.getNationalId() != null
+                ? normalizeNationalId(request.getNationalId())
+                : customer.getNationalId();
         validateDuplicates(
-                request.getNationalId() != null ? request.getNationalId() : customer.getNationalId(),
+                nationalId,
                 request.getEmail() != null ? request.getEmail() : customer.getEmail(),
                 request.getPhone() != null ? request.getPhone() : customer.getPhone(),
                 id);
@@ -66,7 +78,7 @@ public class CustomerService {
         validateAge(dob);
         apply(customer,
                 request.getFullName() != null ? request.getFullName() : customer.getFullName(),
-                request.getNationalId() != null ? request.getNationalId() : customer.getNationalId(),
+                nationalId,
                 request.getEmail() != null ? request.getEmail() : customer.getEmail(),
                 request.getPhone() != null ? request.getPhone() : customer.getPhone(),
                 request.getAddress() != null ? request.getAddress() : customer.getAddress(),
@@ -151,6 +163,13 @@ public class CustomerService {
         if (age < 18) {
             throw new BusinessException("Customer must be at least 18 years old", HttpStatus.BAD_REQUEST);
         }
+    }
+
+    private String normalizeNationalId(String nationalId) {
+        if (nationalId == null) {
+            return null;
+        }
+        return nationalId.replaceAll("\\s+", "").trim();
     }
 
     private Customer findOrThrow(Long id) {

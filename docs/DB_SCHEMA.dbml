@@ -1,0 +1,253 @@
+// =============================================================================
+// WASAC Utility Billing — Database Schema for ERD tools
+// =============================================================================
+// Import at: https://dbdiagram.io  (paste this file or upload)
+// Also see: docs/DB_SCHEMA.sql (PostgreSQL DDL reference)
+// =============================================================================
+
+Project wasac_utility_billing {
+  database_type: 'PostgreSQL'
+  Note: '''
+    WASAC / REG Utility Billing System
+    Flyway migrations V1–V13
+    Triggers: trg_bill_generated_notification
+    Procedures: sp_record_payment
+  '''
+}
+
+// ----- Authentication & users -----
+
+Table users {
+  id bigint [pk, increment, note: 'BIGSERIAL']
+  first_name varchar(50) [not null]
+  last_name varchar(50) [not null]
+  username varchar(50) [not null, unique]
+  email varchar(254) [not null, unique]
+  phone varchar(30) [not null]
+  password varchar(255) [not null, note: 'BCrypt hash']
+  role varchar(20) [not null, note: 'ADMIN|OPERATOR|FINANCE|CUSTOMER']
+  must_change_password boolean [not null, default: false]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  created_by varchar(100)
+  updated_by varchar(100)
+  deleted boolean [not null, default: false]
+  deleted_at timestamptz
+  deleted_by varchar(100)
+  status varchar(20) [not null, default: 'ACTIVE']
+}
+
+Table password_reset_tokens {
+  id bigint [pk, increment]
+  token varchar(64) [not null, unique]
+  user_id bigint [not null, ref: > users.id]
+  expires_at timestamptz [not null]
+  used boolean [not null, default: false]
+  created_at timestamptz [not null]
+}
+
+Table email_verification_tokens {
+  id bigint [pk, increment]
+  token varchar(64) [not null, unique]
+  user_id bigint [not null, unique, ref: > users.id]
+  expires_at timestamptz [not null]
+  created_at timestamptz [not null]
+}
+
+Table otp_tokens {
+  id bigint [pk, increment]
+  user_id bigint [not null, ref: > users.id]
+  code varchar(6) [not null]
+  purpose varchar(30) [not null]
+  expires_at timestamptz [not null]
+  used boolean [not null, default: false]
+  created_at timestamptz [not null]
+}
+
+Table revoked_tokens {
+  id bigint [pk, increment]
+  token_jti varchar(64) [not null, unique]
+  expires_at timestamptz [not null]
+  revoked_at timestamptz [not null]
+}
+
+// ----- Customers (National ID is the primary business identifier) -----
+
+Table customers {
+  id bigint [pk, increment]
+  full_name varchar(150) [not null]
+  national_id varchar(16) [not null, unique, note: 'Rwanda NID — 16 digits. UNIQUE. Reject duplicates e.g. 119998877665544']
+  email varchar(254) [not null, unique]
+  phone varchar(30) [not null, unique]
+  address varchar(255) [not null]
+  date_of_birth date
+  user_id bigint [ref: - users.id, note: 'Optional linked login account']
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  created_by varchar(100)
+  updated_by varchar(100)
+  deleted boolean [not null, default: false]
+  deleted_at timestamptz
+  deleted_by varchar(100)
+  status varchar(20) [not null, default: 'ACTIVE', note: 'ACTIVE|INACTIVE|SUSPENDED']
+  indexes {
+    national_id [name: 'idx_customers_national_id']
+    email [name: 'idx_customers_email']
+  }
+}
+
+// ----- Meters & readings -----
+
+Table meters {
+  id bigint [pk, increment]
+  customer_id bigint [not null, ref: > customers.id]
+  meter_number varchar(50) [not null, unique, note: 'e.g. WTR-0001, ELC-0001']
+  meter_type varchar(20) [not null, note: 'WATER|ELECTRICITY']
+  installation_date date [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  status varchar(20) [not null, default: 'ACTIVE', note: 'ACTIVE|INACTIVE|DISCONNECTED']
+}
+
+Table meter_readings {
+  id bigint [pk, increment]
+  meter_id bigint [not null, ref: > meters.id]
+  previous_reading decimal(12,3) [not null]
+  current_reading decimal(12,3) [not null, note: 'Must be > previous_reading']
+  reading_date date [not null, note: 'Cannot be future date']
+  billing_year int [not null]
+  billing_month int [not null, note: '1-12. UNIQUE per meter_id+year+month']
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  indexes {
+    (meter_id, billing_year, billing_month) [unique, name: 'uq_meter_readings_period']
+  }
+}
+
+// ----- Tariffs -----
+
+Table tariff_configs {
+  id bigint [pk, increment]
+  name varchar(100) [not null]
+  meter_type varchar(20) [not null]
+  tariff_type varchar(20) [not null, note: 'FLAT|TIERED']
+  rate_per_unit decimal(12,4)
+  fixed_service_charge decimal(12,2) [not null, default: 0]
+  vat_percentage decimal(5,2) [not null, default: 18]
+  penalty_percentage decimal(5,2) [not null, default: 0]
+  version int [not null]
+  effective_from date [not null]
+  active boolean [not null, default: true]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  indexes {
+    (meter_type, version) [unique, name: 'uq_tariff_version']
+  }
+}
+
+Table tariff_tiers {
+  id bigint [pk, increment]
+  tariff_config_id bigint [not null, ref: > tariff_configs.id]
+  from_units decimal(12,3) [not null]
+  to_units decimal(12,3)
+  rate_per_unit decimal(12,4) [not null]
+}
+
+// ----- Billing -----
+
+Table bills {
+  id bigint [pk, increment]
+  reference varchar(50) [not null, unique]
+  customer_id bigint [not null, ref: > customers.id]
+  meter_id bigint [not null, ref: > meters.id]
+  meter_reading_id bigint [not null, ref: > meter_readings.id]
+  tariff_config_id bigint [not null, ref: > tariff_configs.id]
+  billing_year int [not null]
+  billing_month int [not null]
+  consumption decimal(12,3) [not null, note: 'Must be > 0']
+  consumption_charge decimal(12,2) [not null]
+  fixed_charge decimal(12,2) [not null]
+  tax_amount decimal(12,2) [not null]
+  penalty_amount decimal(12,2) [not null, default: 0]
+  total_amount decimal(12,2) [not null, note: '>= 0']
+  amount_paid decimal(12,2) [not null, default: 0]
+  outstanding_balance decimal(12,2) [not null]
+  due_date date [not null]
+  bill_status varchar(20) [not null, default: 'UNPAID', note: 'UNPAID|APPROVED|PARTIALLY_PAID|PAID|OVERDUE|CANCELLED']
+  approved_at timestamptz
+  approved_by varchar(100)
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  indexes {
+    (meter_id, billing_year, billing_month) [unique, name: 'uq_bills_meter_period']
+  }
+  Note: 'AFTER INSERT trigger trg_bill_generated_notification creates notification'
+}
+
+Table payments {
+  id bigint [pk, increment]
+  bill_id bigint [not null, ref: > bills.id]
+  amount_paid decimal(12,2) [not null, note: '> 0, cannot exceed outstanding balance']
+  payment_method varchar(30) [not null, note: 'MOMO|BANK|CARD|CASH']
+  payment_date date [not null]
+  reference varchar(50)
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  Note: 'Recorded via stored procedure sp_record_payment'
+}
+
+// ----- Notifications & audit -----
+
+Table notifications {
+  id bigint [pk, increment]
+  customer_id bigint [not null, ref: > customers.id]
+  bill_id bigint [ref: > bills.id]
+  message text [not null]
+  notification_type varchar(30) [not null, note: 'BILL_GENERATED|PAYMENT_COMPLETED']
+  read_flag boolean [not null, default: false]
+  email_sent boolean [not null, default: false]
+  created_at timestamptz [not null]
+  Note: 'Created by DB trigger (bill) or stored procedure (full payment)'
+}
+
+Table audit_logs {
+  id bigint [pk, increment]
+  entity_name varchar(100) [not null]
+  entity_id bigint [not null]
+  action varchar(30) [not null]
+  performed_by varchar(100)
+  details text
+  created_at timestamptz [not null]
+}
+
+Table uploaded_files {
+  id bigint [pk, increment]
+  entity_type varchar(50) [not null]
+  entity_id bigint [not null]
+  original_name varchar(255) [not null]
+  stored_name varchar(255) [not null]
+  content_type varchar(100)
+  file_size bigint [not null]
+  file_path varchar(500) [not null]
+  uploaded_by varchar(100)
+  created_at timestamptz [not null]
+}
+
+// ----- Database routines (documented, not tables) -----
+
+TableGroup database_routines {
+  Note: '''
+    TRIGGER trg_bill_generated_notification
+      ON bills AFTER INSERT
+      EXECUTES fn_notify_bill_generated()
+      → inserts BILL_GENERATED notification (no duplicate per bill)
+
+    PROCEDURE sp_record_payment(bill_id, amount, method, date)
+      → validates bill, inserts payment, updates balance
+      → sets PARTIALLY_PAID or PAID
+      → inserts PAYMENT_COMPLETED notification when fully paid
+
+    FUNCTION fn_format_billing_period(year, month)
+      → formats billing period label for notification messages
+  '''
+}

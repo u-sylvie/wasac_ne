@@ -85,6 +85,8 @@ Click **Authorize** and paste: `Bearer <accessToken>`
 | Document | Path |
 |---|---|
 | Entity Relationship Diagram | [docs/ERD.md](docs/ERD.md) |
+| **DB schema for ERD tools** | [docs/DB_SCHEMA.dbml](docs/DB_SCHEMA.dbml) → import at [dbdiagram.io](https://dbdiagram.io) |
+| PostgreSQL DDL reference | [docs/DB_SCHEMA.sql](docs/DB_SCHEMA.sql) |
 | Spring Boot Flow Diagram | [docs/SPRING_BOOT_FLOW.md](docs/SPRING_BOOT_FLOW.md) |
 
 ---
@@ -136,7 +138,7 @@ Sample data (V9): customer **Eric Customer**, water meter `WTR-0001`, electricit
 
 | Module | Path | Roles |
 |---|---|---|
-| Customers | `/customers` | ADMIN |
+| Customers | `/customers`, `/customers/by-national-id/{nid}` | ADMIN (create), ADMIN/FINANCE/OPERATOR (lookup) |
 | Meters | `/meters` | ADMIN |
 | Meter Readings | `/meter-readings` | OPERATOR (create) |
 | Tariffs | `/tariffs` | ADMIN |
@@ -156,7 +158,9 @@ Sample data (V9): customer **Eric Customer**, water meter `WTR-0001`, electricit
 | Current reading > previous | `MeterReadingService` + DB CHECK |
 | One reading per meter/month/year | DB UNIQUE + service validation |
 | Active meter required | `MeterReadingService` |
-| No duplicate customers | UNIQUE national_id / email |
+| Unique National ID (16 digits) | `ValidRwandaNationalId` + DB UNIQUE + CHECK |
+| No duplicate customers | UNIQUE national_id / email / phone |
+| Lookup customer by NID | `GET /customers/by-national-id/{nationalId}` |
 | Inactive customers cannot get bills | `BillService` |
 | Versioned tariffs | `TariffService` — new version for future cycles |
 | Partial/full payments | `sp_record_payment` stored procedure |
@@ -180,6 +184,8 @@ Sample data (V9): customer **Eric Customer**, water meter `WTR-0001`, electricit
 | V9 | Sample tariffs, users, customer, meters |
 | V10 | Sync seeded user passwords |
 | V11 | Fix tariff effective dates for billing |
+| V12 | Exam validations, bill statuses, triggers/SP updates |
+| V13 | National ID format constraint (16 digits) |
 
 ---
 
@@ -254,6 +260,23 @@ src/main/resources/
   "billingYear": 2026,
   "billingMonth": 7
 }
+```
+
+**Create customer (ADMIN) — National ID required**
+```json
+{
+  "fullName": "Marie Uwera",
+  "nationalId": "119998877665544",
+  "email": "marie@example.com",
+  "phone": "0788123456",
+  "address": "Kigali, Nyarugenge",
+  "dateOfBirth": "1995-03-15"
+}
+```
+
+**Look up customer by National ID**
+```
+GET /api/v1/customers/by-national-id/119998877665544
 ```
 
 **Generate bill (ADMIN / FINANCE)**

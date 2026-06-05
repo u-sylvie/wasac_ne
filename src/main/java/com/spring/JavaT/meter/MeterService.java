@@ -4,7 +4,7 @@ import com.spring.JavaT.audit.AuditService;
 import com.spring.JavaT.common.filter.BaseSpecification;
 import com.spring.JavaT.common.filter.SearchCriteria;
 import com.spring.JavaT.customer.Customer;
-import com.spring.JavaT.customer.CustomerRepository;
+import com.spring.JavaT.customer.CustomerService;
 import com.spring.JavaT.exception.DuplicateResourceException;
 import com.spring.JavaT.exception.ResourceNotFoundException;
 import com.spring.JavaT.meter.dto.MeterCreateRequest;
@@ -25,7 +25,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MeterService {
     private final MeterRepository meterRepository;
-    private final CustomerRepository customerRepository;
+    private final CustomerService customerService;
     private final AuditService auditService;
 
     public Page<MeterResponse> getAll(List<SearchCriteria> criteria, Pageable pageable) {
@@ -69,7 +69,8 @@ public class MeterService {
     }
 
     private void apply(Meter meter, Long customerId, String meterNumber, com.spring.JavaT.common.MeterType meterType, java.time.LocalDate installationDate) {
-        meter.setCustomer(customerRepository.findById(customerId).orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId)));
+        // customerId must be from the customers table — not the users table
+        meter.setCustomer(customerService.requireForAssignment(customerId));
         meter.setMeterNumber(meterNumber);
         meter.setMeterType(meterType);
         meter.setInstallationDate(installationDate);

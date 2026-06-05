@@ -172,6 +172,25 @@ public class CustomerService {
         return nationalId.replaceAll("\\s+", "").trim();
     }
 
+    /**
+     * Loads a customer for meter/bill assignment.
+     * Detects the common mistake of passing a {@code users.id} instead of a {@code customers.id}.
+     */
+    public Customer requireForAssignment(Long customerId) {
+        return customerRepository.findById(customerId).orElseThrow(() -> {
+            if (userRepository.existsById(customerId)) {
+                throw new BusinessException(
+                        "ID " + customerId + " is a user account ID, not a billing customer ID. "
+                                + "Self-registration only creates a login account. "
+                                + "An ADMIN must create a customer via POST /api/v1/customers "
+                                + "(set userId to link the login), then use the returned customer id here.",
+                        HttpStatus.BAD_REQUEST,
+                        "USER_ID_NOT_CUSTOMER_ID");
+            }
+            return new ResourceNotFoundException("Customer", "id", customerId);
+        });
+    }
+
     private Customer findOrThrow(Long id) {
         return customerRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Customer", "id", id));
     }
